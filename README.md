@@ -24,4 +24,6 @@ How to validate the implementation
 
 ## Resources
 - [Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B)
+- [Managing Python Projects With uv: An All-in-One Solution](https://realpython.com/python-uv/)
+- [Python UV: The Ultimate Guide to the Fastest Python Package Manager](https://www.datacamp.com/tutorial/python-uv)
 - [Testing and debugging regular expressions](https://regex101.com/)
