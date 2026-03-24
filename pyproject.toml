@@ -4,4 +4,7 @@ version = "0.1.0"
 description = "Function calling with LLMs"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "flake8>=7.3.0",
+    "mypy>=1.19.1",
+]
