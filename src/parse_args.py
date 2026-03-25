@@ -1,3 +1,10 @@
+"""
+The function parse_args() uses the argparse module
+to parse the command-line arguments
+and returns a Namespace containing the parsed arguments.
+"""
+
+
 from argparse import ArgumentParser, Namespace
 
 

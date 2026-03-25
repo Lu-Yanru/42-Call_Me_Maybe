@@ -189,6 +189,7 @@ An array of JSON objects. Each object represents the result of each prompt and c
 - [Managing Python Projects With uv: An All-in-One Solution](https://realpython.com/python-uv/)
 - [Python UV: The Ultimate Guide to the Fastest Python Package Manager](https://www.datacamp.com/tutorial/python-uv)
 - [Build command-line interfaces with Python's argparse](https://realpython.com/command-line-interfaces-python-argparse/)
+- [Working With JSON Data in Python](https://realpython.com/python-json/)
 - [Testing and debugging regular expressions](https://regex101.com/)
 - [pytest Tutorial: Effective Python Testing](https://realpython.com/pytest-python-testing/)
 - [Python's unittest: Writing Unit Tests for Your Code](https://realpython.com/python-unittest/)
