@@ -6,6 +6,9 @@ install:
 run:
 	uv run python -m src
 
+help:
+	uv run python -m src -h
+
 debug:
 	uv run python -m pdb -m src
 

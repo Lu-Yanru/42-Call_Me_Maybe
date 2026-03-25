@@ -1,8 +1,9 @@
-import sys
+from .parse_args import parse_args
 
 
 def main() -> None:
-    print(sys.argv)
+    args = parse_args()
+    print(args)
     # read and validate input
     # process function definitions and save as valid tokens
     # process prompts
