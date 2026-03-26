@@ -1,7 +1,7 @@
 from typing import Any
 
 
-from llm_sdk.llm_sdk import Small_LLM_Model
+from llm_sdk import Small_LLM_Model
 from src.parse_funcs import FuncDef
 from src.parse_prompts import Prompt
 
@@ -22,10 +22,10 @@ class PromptProcessor:
             prompt_output: dict[str, str | dict[str, Any]] = {}
 
             prompt_output["output"] = prompt.prompt
-            prompt_output["name"] = self.generate_func_name(prompt)
-            prompt_output["parameters"] = self.generate_parameters(prompt)
+            # prompt_output["name"] = self.generate_func_name(prompt)
+            # prompt_output["parameters"] = self.generate_parameters(prompt)
 
             self.output.append(prompt_output)
 
-    def generate_func_name(self, prompt: Prompt) -> str:
-        pass
+    # def generate_func_name(self, prompt: Prompt) -> str:
+    #     pass
