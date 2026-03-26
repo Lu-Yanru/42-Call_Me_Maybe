@@ -19,7 +19,7 @@ def main() -> None:
         # process prompts
         # constrained decoding
         # write output
-        write_output(args.functions_definition, args.output)
+        write_output(funcs, args.output)
     except (FuncDefError, PromptError) as e:
         print(e)
     except OSError as e:

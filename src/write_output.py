@@ -13,7 +13,5 @@ def write_output(output: list, filepath: str) -> None:
     try:
         with open(filepath, "w") as f:
             json.dump(output, f)
-    except json.JSONDecodeError:
-        raise OSError(f"OSError: Failed to write to file {filepath}")
-    except OSError:
+    except (json.JSONDecodeError, TypeError, OSError):
         raise OSError(f"OSError: Failed to write to file {filepath}")
