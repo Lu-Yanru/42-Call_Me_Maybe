@@ -1,6 +1,7 @@
 from src.parse_args import parse_args
 from src.parse_funcs import parse_funcs, FuncDefError
 from src.parse_prompts import parse_prompts, PromptError
+from src.write_output import write_output
 
 
 def main() -> None:
@@ -18,7 +19,10 @@ def main() -> None:
         # process prompts
         # constrained decoding
         # write output
+        write_output(args.functions_definition, args.output)
     except (FuncDefError, PromptError) as e:
+        print(e)
+    except OSError as e:
         print(e)
 
 

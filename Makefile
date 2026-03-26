@@ -31,4 +31,4 @@ lint-strict:
 
 re: fclean all
 
-.PHONY: all install run debug clean lint lint-strict
+.PHONY: all install run help debug clean fclean lint lint-strict re
