@@ -17,6 +17,7 @@ clean:
 	rm -rf .mypy_cache
 
 fclean: clean
+	uv cache clean
 	rm -rf .venv
 
 lint:
