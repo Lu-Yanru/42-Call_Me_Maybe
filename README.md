@@ -185,7 +185,7 @@ An array of JSON objects. Each object represents the result of each prompt and c
 
 ## Resources
 - [Qwen3-0.6B on Hugging Face](https://huggingface.co/Qwen/Qwen3-0.6B)
-- [Qwen documentation](https://qwen.readthedocs.io/en/latest/index.htmls)
+- [Qwen documentation](https://qwen.readthedocs.io/en/latest/getting_started/concepts.html)
 - [Managing Python Projects With uv: An All-in-One Solution](https://realpython.com/python-uv/)
 - [Python UV: The Ultimate Guide to the Fastest Python Package Manager](https://www.datacamp.com/tutorial/python-uv)
 - [Build command-line interfaces with Python's argparse](https://realpython.com/command-line-interfaces-python-argparse/)

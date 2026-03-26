@@ -6,9 +6,11 @@ and writes the list to the file.
 
 import json
 from pathlib import Path
+from typing import Any
 
 
-def write_output(output: list, filepath: str) -> None:
+def write_output(output: list[dict[str, str | dict[str, Any]]],
+                 filepath: str) -> None:
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(filepath, "w") as f:
