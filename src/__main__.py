@@ -1,17 +1,25 @@
-from .parse_args import parse_args
+from src.parse_args import parse_args
+from src.parse_funcs import parse_funcs, FuncDefError
+from src.parse_prompts import parse_prompts, PromptError
 
 
 def main() -> None:
-    # parse input
+    # parse CLI
     args = parse_args()
-    print(args)
-    # parse functions definitions
-    # parse prompt
-    # read and validate input
-    # process function definitions and save as valid tokens
-    # process prompts
-    # constrained decoding
-    # write output
+
+    try:
+        # parse functions definitions
+        funcs = parse_funcs(args.functions_definition)
+        print(funcs)
+        # parse prompt
+        prompts = parse_prompts(args.input)
+        print(prompts)
+        # process function definitions and save as valid tokens
+        # process prompts
+        # constrained decoding
+        # write output
+    except (FuncDefError, PromptError) as e:
+        print(e)
 
 
 if __name__ == "__main__":
