@@ -67,5 +67,17 @@
     "returns": {
       "type": "string"
     }
+  },
+  {
+    "name": "call_me",
+    "description": "A function that prints out the message 'call me'.",
+    "parameters": {},
+    "returns": {}
+  },
+  {
+    "name": "is_alpha",
+    "description": "Check whether a character is part of the alphabet or not.",
+    "parameters": {"a": "boolean"},
+    "returns": {"type": "string"}
   }
 ]

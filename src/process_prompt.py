@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 
@@ -8,7 +9,7 @@ from src.parse_prompts import Prompt
 
 class PromptProcessor:
     def __init__(self, funcs: list[FuncDef], prompts: list[Prompt],
-                 model_name: str, max_tokens: int = 100) -> None:
+                 model_name: str, max_tokens: int = 150) -> None:
         self.funcs = funcs
         self.prompts = prompts
         self.llm = Small_LLM_Model(model_name)
@@ -22,7 +23,7 @@ class PromptProcessor:
         for prompt in self.prompts:
             prompt_output: dict[str, str | dict[str, Any]] = {}
 
-            prompt_output["output"] = prompt.prompt
+            prompt_output["prompt"] = prompt.prompt
             func_name = self.generate_func_name(prompt)
             if func_name is None:
                 print("Cannot find a suitable function for "
@@ -35,6 +36,23 @@ class PromptProcessor:
                     self.generate_parameters(prompt, func_name)
 
                 self.output.append(prompt_output)
+
+    def get_eos(self) -> set[int]:
+        """
+        Get the token id of eos by checking various way of encoding eos.
+        """
+        eos_candidates = [
+            "<|endoftext|>",
+            "<|im_end|>",
+            "</s>",
+            "<eos>"
+        ]
+        eos_ids: set[int] = set()
+        for str in eos_candidates:
+            ids = self.llm.encode(str).squeeze(0).tolist()
+            if len(ids) == 1 and self.llm.decode(ids) == "":
+                eos_ids.add(ids[0])
+        return eos_ids
 
     def generate_func_name(self, prompt: Prompt) -> str | None:
         """
@@ -204,23 +222,6 @@ class PromptProcessor:
 
         return None
 
-    def get_eos(self) -> set[int]:
-        """
-        Get the token id of eos by checking various way of encoding eos.
-        """
-        eos_candidates = [
-            "<|endoftext|>",
-            "<|im_end|>",
-            "</s>",
-            "<eos>"
-        ]
-        eos_ids: set[int] = set()
-        for str in eos_candidates:
-            ids = self.llm.encode(str).squeeze(0).tolist()
-            if len(ids) == 1 and self.llm.decode(ids) == "":
-                eos_ids.add(ids[0])
-        return eos_ids
-
     def generate_parameters(self, prompt: Prompt,
                             func_name: str) -> dict[str, Any]:
         """
@@ -231,34 +232,130 @@ class PromptProcessor:
         for func in self.funcs:
             if func.name == func_name:
                 func_def = func
-        message = self.create_prompt_parameters(prompt, func_def.full_text)
+        eos_ids = self.get_eos()
 
         res: dict[str, Any] = {}
         if len(func_def.parameters) == 0:
             return res
-        for var, param in func_def.parameters.items():
+        for var_name, param in func_def.parameters.items():
             if param["type"].lower() == "number":
-                res[var] = self.generate_num_param(message)
+                res[var_name] = \
+                    self.generate_num_param(prompt, func_def,
+                                            var_name, eos_ids)
             elif param["type"].lower() == "boolean":
-                res[var] = self.generate_bool_param(message)
+                res[var_name] = self.generate_bool_param(prompt, func_def,
+                                                         var_name, eos_ids)
             else:
-                res[var] = self.generate_str_param(message)
+                res[var_name] = \
+                    self.generate_str_param(prompt, func_def,
+                                            var_name, eos_ids)
 
         return res
 
     def create_prompt_parameters(self, prompt: Prompt,
-                                 func_def: str) -> str:
+                                 func_def: FuncDef, var_name: str) -> str:
         """
         Creates a prompt message that asks the llm
-        to generate parameters for the input prompt
+        to generate the value of a parameter for the input prompt
         based on the given function.
         """
-        message = (f"Use the following function: {func_def} "
+        message = (f"Use the following function: {func_def.full_text} "
                    f"to solve the task '{prompt.prompt}'. "
-                   "Answer only with the parameters "
-                   "that I need to give the function. "
-                   "Provide each parameter and do not add more fields.")
+                   "Do not give the answer to the task directly. "
+                   f"Provide only the value of the parameter {var_name} "
+                   f"of type {func_def.parameters[var_name]["type"]}, "
+                   "and nothing else.")
         return message
-    
-    # def generate_str_param(self, message: str) -> str:
 
+    def generate_num_param(self, prompt: Prompt, func_def: FuncDef,
+                           var_name: str,
+                           eos_ids: set[int]) -> int | float | None:
+        """
+        Extract a numeric value of a parameter from the llm genertion
+        by finding the first number in the whole generated text using regex.
+        Stops when a match is found or reaching max_tokens or EOS.
+        """
+        message = self.create_prompt_parameters(prompt, func_def, var_name)
+        # Encode prompt into a 2D tensor and convert into a list
+        input_ids = self.llm.encode(message).squeeze(0).tolist()
+
+        # All generated tokens
+        generated_ids: list[int] = []
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             None)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                break
+
+            generated_ids.append(next_id)
+
+            # Decode the whole generated text so far and check with regex
+            regex = r"-?\d+(?:\.\d+)?"
+            text = self.llm.decode(generated_ids)
+            res = re.search(regex, text)
+            if res:
+                return float(res.group())
+
+        return None
+
+    def generate_bool_param(self, prompt: Prompt, func_def: FuncDef,
+                            var_name: str,
+                            eos_ids: set[int]) -> bool | None:
+        """
+        Extract a boolean value of a parameter from the llm genertion
+        by finding the first "true" or "false" str in the whole generated text.
+        Stops when a match is found or reaching max_tokens or EOS.
+        """
+        message = self.create_prompt_parameters(prompt, func_def, var_name)
+        # Encode prompt into a 2D tensor and convert into a list
+        input_ids = self.llm.encode(message).squeeze(0).tolist()
+
+        # All generated tokens
+        generated_ids: list[int] = []
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             None)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                break
+
+            generated_ids.append(next_id)
+
+            # Decode the whole generated text so far and check with regex
+            text = self.llm.decode(generated_ids)
+            if "true" in text.lower():
+                return True
+            elif "false" in text.lower():
+                return False
+
+        return None
+
+    def generate_str_param(self, prompt: Prompt, func_def: FuncDef,
+                           var_name: str, eos_ids: set[int]) -> str:
+        message = self.create_prompt_parameters(prompt, func_def, var_name)
+
+        # Encode prompt into a 2D tensor and convert into a list
+        input_ids = self.llm.encode(message).squeeze(0).tolist()
+
+        # All generated tokens
+        generated_ids: list[int] = []
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             None)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                break
+
+            generated_ids.append(next_id)
+
+        return self.llm.decode(generated_ids).strip()
