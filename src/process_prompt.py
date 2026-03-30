@@ -8,11 +8,12 @@ from src.parse_prompts import Prompt
 
 class PromptProcessor:
     def __init__(self, funcs: list[FuncDef], prompts: list[Prompt],
-                 model_name: str) -> None:
+                 model_name: str, max_tokens: int = 100) -> None:
         self.funcs = funcs
         self.prompts = prompts
         self.llm = Small_LLM_Model(model_name)
         self.output: list[dict[str, str | dict[str, Any]]] = []
+        self.max_tokens = max_tokens
 
     def process(self) -> None:
         """
@@ -22,10 +23,58 @@ class PromptProcessor:
             prompt_output: dict[str, str | dict[str, Any]] = {}
 
             prompt_output["output"] = prompt.prompt
-            prompt_output["name"] = self.generate_func_name(prompt)
-            # prompt_output["parameters"] = self.generate_parameters(prompt)
+            func_name = self.generate_func_name(prompt)
+            if func_name is None:
+                print("Cannot find a suitable function for "
+                      f"'{prompt.prompt}'. "
+                      "Skipping...")
+                continue
+            else:
+                prompt_output["name"] = func_name
+                prompt_output["parameters"] = \
+                    self.generate_parameters(prompt, func_name)
 
-            self.output.append(prompt_output)
+                self.output.append(prompt_output)
+
+    def generate_func_name(self, prompt: Prompt) -> str | None:
+        """
+        Use constrained decoding to make the llm pick one function name
+        from the provided function definitions.
+        Generate until a valid function name is found,
+        or when a maximun number of tokens is reached.
+        """
+        message = self.create_prompt_func_name(prompt)
+        eos_ids = self.get_eos()
+
+        # Encode prompt into a 2D tensor and convert into a list
+        input_ids = self.llm.encode(message).squeeze(0).tolist()
+
+        candidates = self.tokenize_func_names()
+
+        # All generated tokens
+        generated_ids: list[int] = []
+        # Number of matched tokens for each candidate at matching index
+        match_progress: list[int | None] = [None] * len(candidates)
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Get the valid next token id
+            valid_next = self.get_valid_func_name_id(candidates,
+                                                     match_progress)
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             valid_next)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                return None
+
+            generated_ids.append(next_id)
+            matched_name = self.update_match_progress(next_id, candidates,
+                                                      match_progress)
+            if matched_name is not None:
+                return matched_name
+
+        return None
 
     def get_func_defs(self) -> list[dict[str, str]]:
         """
@@ -155,37 +204,61 @@ class PromptProcessor:
 
         return None
 
-    def generate_func_name(self, prompt: Prompt, max_tokens: int = 500) -> str:
+    def get_eos(self) -> set[int]:
         """
-        Use constrained decoding to make the llm pick one function name
-        from the provided function definitions.
-        Generate until a valid function name is found,
-        or when a maximun number of tokens is reached.
+        Get the token id of eos by checking various way of encoding eos.
         """
-        message = self.create_prompt_func_name(prompt)
+        eos_candidates = [
+            "<|endoftext|>",
+            "<|im_end|>",
+            "</s>",
+            "<eos>"
+        ]
+        eos_ids: set[int] = set()
+        for str in eos_candidates:
+            ids = self.llm.encode(str).squeeze(0).tolist()
+            if len(ids) == 1 and self.llm.decode(ids) == "":
+                eos_ids.add(ids[0])
+        return eos_ids
 
-        # Encode prompt into a 2D tensor and convert into a list
-        input_ids = self.llm.encode(message).squeeze(0).tolist()
+    def generate_parameters(self, prompt: Prompt,
+                            func_name: str) -> dict[str, Any]:
+        """
+        Use constrained decoding to make the llm
+        pick the parameters of the function
+        based on the prompt and the function description.
+        """
+        for func in self.funcs:
+            if func.name == func_name:
+                func_def = func
+        message = self.create_prompt_parameters(prompt, func_def.full_text)
 
-        candidates = self.tokenize_func_names()
+        res: dict[str, Any] = {}
+        if len(func_def.parameters) == 0:
+            return res
+        for var, param in func_def.parameters.items():
+            if param["type"].lower() == "number":
+                res[var] = self.generate_num_param(message)
+            elif param["type"].lower() == "boolean":
+                res[var] = self.generate_bool_param(message)
+            else:
+                res[var] = self.generate_str_param(message)
 
-        # All generated tokens
-        generated_ids: list[int] = []
-        # Number of matched tokens for each candidate at matching index
-        match_progress: list[int | None] = [None] * len(candidates)
+        return res
 
-        # Generate one token at a time, up to max_tokens
-        for _ in range(max_tokens):
-            # Get the valid next token id
-            valid_next = self.get_valid_func_name_id(candidates,
-                                                     match_progress)
-            # Pick the best next token based on all generated token so far
-            next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             valid_next)
-            generated_ids.append(next_id)
-            matched_name = self.update_match_progress(next_id, candidates,
-                                                      match_progress)
-            if matched_name is not None:
-                return matched_name
+    def create_prompt_parameters(self, prompt: Prompt,
+                                 func_def: str) -> str:
+        """
+        Creates a prompt message that asks the llm
+        to generate parameters for the input prompt
+        based on the given function.
+        """
+        message = (f"Use the following function: {func_def} "
+                   f"to solve the task '{prompt.prompt}'. "
+                   "Answer only with the parameters "
+                   "that I need to give the function. "
+                   "Provide each parameter and do not add more fields.")
+        return message
+    
+    # def generate_str_param(self, message: str) -> str:
 
-        return "No match found"

@@ -41,7 +41,7 @@ class FuncDef(BaseModel):
                     raise ValueError(f"Keys and values in parameter '{key}' "
                                      "cannot be empty")
 
-        if "type" not in self.returns.keys():
+        if len(self.returns) != 0 and "type" not in self.returns.keys():
             raise ValueError("Returns must have a type.")
         for key, val in self.returns.items():
             if len(key) == 0 or len(val) == 0:

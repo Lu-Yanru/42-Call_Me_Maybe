@@ -14,6 +14,6 @@ def write_output(output: list[dict[str, str | dict[str, Any]]],
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
     try:
         with open(filepath, "w") as f:
-            json.dump(output, f)
+            json.dump(output, f, indent=4)
     except (json.JSONDecodeError, TypeError, OSError):
         raise OSError(f"OSError: Failed to write to file {filepath}")

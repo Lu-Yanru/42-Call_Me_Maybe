@@ -24,11 +24,9 @@ def main() -> None:
         funcs = parse_funcs(args.functions_definition)
         # parse prompt
         prompts = parse_prompts(args.input)
-        # process function definitions and save as valid tokens
         # process prompts
         processor = PromptProcessor(funcs, prompts, args.model)
         processor.process()
-        # constrained decoding
         # write output
         write_output(processor.output, args.output)
     except (FuncDefError, PromptError) as e:
