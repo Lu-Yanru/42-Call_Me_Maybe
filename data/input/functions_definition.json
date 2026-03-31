@@ -75,9 +75,13 @@
     "returns": {}
   },
   {
-    "name": "is_alpha",
-    "description": "Check whether a character is part of the alphabet or not.",
-    "parameters": {"a": "boolean"},
+    "name": "log_customer",
+    "description": "Log the information of a customer with a customer id and whether the customer is a premium member or not.",
+    "parameters": {
+        "is_premium": {
+            "type": "boolean"
+        }
+    },
     "returns": {"type": "string"}
   }
 ]

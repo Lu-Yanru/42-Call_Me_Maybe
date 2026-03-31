@@ -60,7 +60,7 @@ class PromptProcessor:
     def encode_cache(self, text: str) -> list[int]:
         return self.llm.encode(text).squeeze(0).tolist()
 
-    def tokenize_str(self, candidates: list[str]) \
+    def tokenize_str(self, candidates: list[str], boolean: bool) \
             -> list[tuple[list[int], str]]:
         """
         Create a list of (token_id, candidate) pairs.
@@ -68,8 +68,12 @@ class PromptProcessor:
         a start-of-sentence token version
         and a mid-sentence token version.
         """
-        prefix = "A "
-        prefix_len = len(self.llm.encode(prefix).squeeze(0).tolist())
+        if boolean is False:
+            prefix = "A "
+            prefix_len = len(self.llm.encode(prefix).squeeze(0).tolist())
+        else:
+            prefix = " "
+            prefix_len = 0
 
         res: list[tuple[list[int], str]] = []
         # Encode each function name into a list of token ids
@@ -77,8 +81,11 @@ class PromptProcessor:
             token_ids_start = self.encode_cache(can)
             token_ids_mid = \
                 self.encode_cache(prefix + can)[prefix_len:]
-            res.append((token_ids_mid, can))
-            if token_ids_mid != token_ids_start:
+            if token_ids_mid:
+                print(f"mid_ids: {token_ids_mid}")
+                res.append((token_ids_mid, can))
+            if token_ids_start and token_ids_mid != token_ids_start:
+                print(f"start_ids: {token_ids_start}")
                 res.append((token_ids_start, can))
 
         return res
@@ -125,11 +132,15 @@ class PromptProcessor:
                               candidates: list[tuple[list[int], str]],
                               match_progress: list[int | None]) -> str | None:
         """
-        Update the match_progress for each candidate function name.
+        Update the match_progress for each candidate function name/parameter.
         Returns the matched function name if any candidate is fully matched,
         None otherwise.
         """
         for i, (token_ids, name) in enumerate(candidates):
+            # Skip candidates with empty token lists
+            if not token_ids:
+                continue
+
             progress = match_progress[i]
 
             # If nothing is matched yet,
@@ -169,7 +180,7 @@ class PromptProcessor:
         input_ids = self.encode_cache(message)
 
         func_names = self.get_func_names()
-        candidates = self.tokenize_str(func_names)
+        candidates = self.tokenize_str(func_names, False)
 
         # All generated tokens
         generated_ids: list[int] = []
@@ -249,9 +260,9 @@ class PromptProcessor:
                 res[var_name] = \
                     self.generate_num_param(prompt, func_def,
                                             var_name, eos_ids)
-            # elif param["type"].lower() == "boolean":
-            #     res[var_name] = self.generate_bool_param(prompt, func_def,
-            #                                              var_name, eos_ids)
+            elif param["type"].lower() == "boolean":
+                res[var_name] = self.generate_bool_param(prompt, func_def,
+                                                         var_name, eos_ids)
             else:
                 res[var_name] = \
                     self.generate_str_param(prompt, func_def,
@@ -282,7 +293,6 @@ class PromptProcessor:
         Extract a numeric value of a parameter from the llm genertion
         using constrained decoding.
         Allow the llm to only generate numbers that appears in the prompt.
-        Then find the first number in the whole generated text using regex.
         Stops when a match is found or reaching max_tokens or EOS.
         """
         message = self.create_prompt_parameters(prompt, func_def, var_name)
@@ -291,7 +301,7 @@ class PromptProcessor:
 
         # Only allow numbers that appear in the prompt
         prompt_nums = self.get_valid_num(prompt)
-        candidates = self.tokenize_str(prompt_nums)
+        candidates = self.tokenize_str(prompt_nums, False)
 
         # All generated tokens
         generated_ids: list[int] = []
@@ -333,33 +343,47 @@ class PromptProcessor:
                             eos_ids: set[int]) -> bool | None:
         """
         Extract a boolean value of a parameter from the llm genertion
-        by finding the first "true" or "false" str in the whole generated text.
+        Allow the llm to only generate true or false.
         Stops when a match is found or reaching max_tokens or EOS.
         """
         message = self.create_prompt_parameters(prompt, func_def, var_name)
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
 
+        # Only allow numbers that appear in the prompt
+        bool_vals = ["true", "false", "True", "False", "TRUE", "FALSE"]
+        print("===tokenize bool vals===")
+        candidates = self.tokenize_str(bool_vals, True)
+        print(candidates)
+
         # All generated tokens
         generated_ids: list[int] = []
+        # Number of matched tokens for each candidate at matching index
+        match_progress: list[int | None] = [None] * len(candidates)
 
         # Generate one token at a time, up to max_tokens
         for _ in range(self.max_tokens):
+            # Get the valid next token id
+            valid_next = self.get_valid_next(candidates,
+                                             match_progress)
+            print(f"valid_next: {valid_next}")
             # Pick the best next token based on all generated token so far
             next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             None)
+                                             valid_next)
+            print(f"next_id: {next_id}")
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 break
 
             generated_ids.append(next_id)
 
-            # Decode the whole generated text so far and check with regex
-            text = self.llm.decode(generated_ids)
-            if "true" in text.lower():
-                return True
-            elif "false" in text.lower():
-                return False
+            # Update match progress and check if a number is fully matched
+            res = self.update_match_progress(next_id, candidates,
+                                             match_progress)
+            print(res)
+
+            if res is not None:
+                return res.lower() == "true"
 
         return None
 
