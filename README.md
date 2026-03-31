@@ -195,3 +195,5 @@ An array of JSON objects. Each object represents the result of each prompt and c
 - [Testing and debugging regular expressions](https://regex101.com/)
 - [pytest Tutorial: Effective Python Testing](https://realpython.com/pytest-python-testing/)
 - [Python's unittest: Writing Unit Tests for Your Code](https://realpython.com/python-unittest/)
+
+AI is used to explain the logic of constrained decoding with step-by-step example, and refactor the code.
