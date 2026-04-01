@@ -60,7 +60,7 @@ class PromptProcessor:
     def encode_cache(self, text: str) -> list[int]:
         return self.llm.encode(text).squeeze(0).tolist()
 
-    def tokenize_str(self, candidates: list[str], boolean: bool) \
+    def tokenize_str(self, candidates: list[str]) \
             -> list[tuple[list[int], str]]:
         """
         Create a list of (token_id, candidate) pairs.
@@ -68,12 +68,8 @@ class PromptProcessor:
         a start-of-sentence token version
         and a mid-sentence token version.
         """
-        if boolean is False:
-            prefix = "A "
-            prefix_len = len(self.llm.encode(prefix).squeeze(0).tolist())
-        else:
-            prefix = " "
-            prefix_len = 0
+        prefix = "A "
+        prefix_len = len(self.llm.encode(prefix).squeeze(0).tolist())
 
         res: list[tuple[list[int], str]] = []
         # Encode each function name into a list of token ids
@@ -82,10 +78,8 @@ class PromptProcessor:
             token_ids_mid = \
                 self.encode_cache(prefix + can)[prefix_len:]
             if token_ids_mid:
-                print(f"mid_ids: {token_ids_mid}")
                 res.append((token_ids_mid, can))
             if token_ids_start and token_ids_mid != token_ids_start:
-                print(f"start_ids: {token_ids_start}")
                 res.append((token_ids_start, can))
 
         return res
@@ -180,7 +174,7 @@ class PromptProcessor:
         input_ids = self.encode_cache(message)
 
         func_names = self.get_func_names()
-        candidates = self.tokenize_str(func_names, False)
+        candidates = self.tokenize_str(func_names)
 
         # All generated tokens
         generated_ids: list[int] = []
@@ -259,19 +253,25 @@ class PromptProcessor:
             if param["type"].lower() == "number":
                 res[var_name] = \
                     self.generate_num_param(prompt, func_def,
-                                            var_name, eos_ids)
+                                            var_name, param["type"],
+                                            eos_ids)
             elif param["type"].lower() == "boolean":
-                res[var_name] = self.generate_bool_param(prompt, func_def,
-                                                         var_name, eos_ids)
+                res[var_name] = \
+                    self.generate_bool_param(prompt, func_def,
+                                             var_name, param["type"],
+                                             eos_ids)
             else:
                 res[var_name] = \
                     self.generate_str_param(prompt, func_def,
-                                            var_name, eos_ids)
+                                            var_name, param["type"],
+                                            eos_ids)
 
         return res
 
     def create_prompt_parameters(self, prompt: Prompt,
-                                 func_def: FuncDef, var_name: str) -> str:
+                                 func_def: FuncDef,
+                                 var_name: str,
+                                 type: str) -> str:
         """
         Creates a prompt message that asks the llm
         to generate the value of a parameter for the input prompt
@@ -281,13 +281,20 @@ class PromptProcessor:
                    f"to solve the task '{prompt.prompt}'. "
                    "Do not give the answer to the task directly. "
                    f"Provide only the value of the parameter {var_name} "
-                   f"of type {func_def.parameters[var_name]["type"]}, "
-                   "and nothing else."
-                   f"Value of the parameter {var_name}: ")
+                   f"of type {type}, "
+                   "and nothing else.")
+        if type.lower() == "number":
+            message += (" Answer with arabic numerals. "
+                        f"Value of the parameter {var_name}: ")
+        elif type.lower() == "boolean":
+            message += (" Answer with 'true' or 'false'. "
+                        f"Value of the parameter {var_name}: ")
+        else:
+            message += f"Value of the parameter {var_name}: "
         return message
 
     def generate_num_param(self, prompt: Prompt, func_def: FuncDef,
-                           var_name: str,
+                           var_name: str, type: str,
                            eos_ids: set[int]) -> int | float | None:
         """
         Extract a numeric value of a parameter from the llm genertion
@@ -295,13 +302,16 @@ class PromptProcessor:
         Allow the llm to only generate numbers that appears in the prompt.
         Stops when a match is found or reaching max_tokens or EOS.
         """
-        message = self.create_prompt_parameters(prompt, func_def, var_name)
+        message = self.create_prompt_parameters(prompt, func_def,
+                                                var_name, type)
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
 
         # Only allow numbers that appear in the prompt
-        prompt_nums = self.get_valid_num(prompt)
-        candidates = self.tokenize_str(prompt_nums, False)
+        prompt_nums = self.get_valid_num(prompt.prompt)
+        if len(prompt_nums) == 0:
+            return self.generate_num_param_free(input_ids, eos_ids)
+        candidates = self.tokenize_str(prompt_nums)
 
         # All generated tokens
         generated_ids: list[int] = []
@@ -331,30 +341,57 @@ class PromptProcessor:
 
         return None
 
-    def get_valid_num(self, prompt: Prompt) -> list[str]:
+    def generate_num_param_free(self, input_ids: list[int],
+                                eos_ids: set[int]) -> int | float | None:
         """
-        Extract all numbers trings that appear in the prompt
+        If there are no arabic numbers in the prompt,
+        extract the first arabic number
+        generated by the llm using regex.
+        """
+        # All generated tokens
+        generated_ids: list[int] = []
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             None)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                break
+
+            generated_ids.append(next_id)
+
+            res = self.llm.decode(generated_ids)
+            num = self.get_valid_num(res)
+            if len(num) > 0:
+                return float(num[0])
+
+        return None
+
+    def get_valid_num(self, string: str) -> list[str]:
+        """
+        Extract all numbers strings that appear in a string
         using regex.
         """
-        return re.findall(r"-?\d+(?:\.\d+)?", prompt.prompt)
+        return re.findall(r"-?\d+(?:\.\d+)?", string)
 
     def generate_bool_param(self, prompt: Prompt, func_def: FuncDef,
-                            var_name: str,
+                            var_name: str, type: str,
                             eos_ids: set[int]) -> bool | None:
         """
         Extract a boolean value of a parameter from the llm genertion
         Allow the llm to only generate true or false.
         Stops when a match is found or reaching max_tokens or EOS.
         """
-        message = self.create_prompt_parameters(prompt, func_def, var_name)
+        message = self.create_prompt_parameters(prompt, func_def,
+                                                var_name, type)
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
 
         # Only allow numbers that appear in the prompt
         bool_vals = ["true", "false", "True", "False", "TRUE", "FALSE"]
-        print("===tokenize bool vals===")
-        candidates = self.tokenize_str(bool_vals, True)
-        print(candidates)
+        candidates = self.tokenize_str(bool_vals)
 
         # All generated tokens
         generated_ids: list[int] = []
@@ -366,11 +403,9 @@ class PromptProcessor:
             # Get the valid next token id
             valid_next = self.get_valid_next(candidates,
                                              match_progress)
-            print(f"valid_next: {valid_next}")
             # Pick the best next token based on all generated token so far
             next_id = self.get_next_token_id(input_ids + generated_ids,
                                              valid_next)
-            print(f"next_id: {next_id}")
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 break
@@ -380,7 +415,6 @@ class PromptProcessor:
             # Update match progress and check if a number is fully matched
             res = self.update_match_progress(next_id, candidates,
                                              match_progress)
-            print(res)
 
             if res is not None:
                 return res.lower() == "true"
@@ -388,8 +422,9 @@ class PromptProcessor:
         return None
 
     def generate_str_param(self, prompt: Prompt, func_def: FuncDef,
-                           var_name: str, eos_ids: set[int]) -> str:
-        message = self.create_prompt_parameters(prompt, func_def, var_name)
+                           var_name: str, type: str, eos_ids: set[int]) -> str:
+        message = self.create_prompt_parameters(prompt, func_def,
+                                                var_name, type)
 
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
