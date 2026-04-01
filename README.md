@@ -83,11 +83,12 @@ How to validate the implementation
 - Missing files
 
 #### Handled edge cases
+- Function name does not start with "fn_"
 - Empty prompt
 - Numbers: negative, float, zero, large numbers
 - Special characters e.g. "café", "María"
 - Strings with internal apostrophes e.g. "I'm", "don't"
-- Semantic replacements e.g. "asterisks" → "*"
+- Semantic replacements e.g. "three" -> 3, "asterisks" → "*"
 - Wrong types
 - Ambiguous prompts
 - Functions with multiple parameters
