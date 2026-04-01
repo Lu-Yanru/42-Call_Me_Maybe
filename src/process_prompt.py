@@ -10,7 +10,7 @@ from src.parse_prompts import Prompt
 
 class PromptProcessor:
     def __init__(self, funcs: list[FuncDef], prompts: list[Prompt],
-                 model_name: str, max_tokens: int = 100) -> None:
+                 model_name: str, max_tokens: int = 150) -> None:
         self.funcs = funcs
         self.prompts = prompts
         self.llm = Small_LLM_Model(model_name)
@@ -72,7 +72,7 @@ class PromptProcessor:
         and a mid-sentence token version.
         """
         prefix = "A "
-        prefix_len = len(self.llm.encode(prefix).squeeze(0).tolist())
+        prefix_len = len(self.encode_cache(prefix))
 
         res: list[tuple[list[int], str]] = []
         # Encode each function name into a list of token ids
@@ -296,6 +296,10 @@ class PromptProcessor:
             message += " Answer with 'true' or 'false'. "
         elif var_name.lower() == "regex":
             message += " Answer only with a valid regular expression. "
+        elif var_name.lower() == "replacement":
+            message += (" In this case, it should be the string or symbols"
+                        " you need to use to replace the other strings"
+                        " or symbols.")
 
         message += f"Value of the parameter {var_name}: "
         return message
@@ -318,11 +322,13 @@ class PromptProcessor:
         # Only allow numbers that appear in the prompt
         prompt_nums = self.get_valid_num(prompt.prompt)
         if len(prompt_nums) == 0:
-            return self.generate_num_param_free(input_ids, eos_ids)
+            return self.generate_num_param_free(input_ids, eos_ids,
+                                                used_candidates)
         available_can = self.get_available_candidates(prompt_nums,
                                                       used_candidates)
         if len(available_can) == 0:
-            return self.generate_num_param_free(input_ids, eos_ids)
+            return self.generate_num_param_free(input_ids, eos_ids,
+                                                used_candidates)
         candidates = self.tokenize_str(available_can)
 
         # All generated tokens
@@ -354,7 +360,8 @@ class PromptProcessor:
         return None
 
     def generate_num_param_free(self, input_ids: list[int],
-                                eos_ids: set[int]) -> int | float | None:
+                                eos_ids: set[int],
+                                used_can: list[str]) -> int | float | None:
         """
         If there are no arabic numbers in the prompt,
         extract the first arabic number
@@ -383,17 +390,33 @@ class PromptProcessor:
 
             res = self.llm.decode(generated_ids)
             num = self.get_valid_num(res)
-            if len(num) > 0:
-                match = num[0]
-            if match:
-                if len(last_match) == 0:
-                    last_match = match
-                    last_match_len = len(match)
-                elif len(match) > last_match_len:
-                    last_match = match
-                    last_match_len = len(match)
+            if len(num) == 0:
+                continue
+
+            # Skip the numbers in used_candidates
+            remaining_can = used_can.copy()
+            target_match = None
+            for n in num:
+                if n in remaining_can:
+                    remaining_can.remove(n)
+                    # break
                 else:
-                    return float(last_match)
+                    target_match = n
+                    break
+            # If all found numbers so far have been used and thus skipped
+            if target_match is None:
+                continue
+
+            # Check if the number we match is still growing
+            # and only return if it stops growing
+            if len(last_match) == 0:
+                last_match = target_match
+                last_match_len = len(target_match)
+            elif len(target_match) > last_match_len:
+                last_match = target_match
+                last_match_len = len(target_match)
+            else:
+                return float(last_match)
 
         return None
 

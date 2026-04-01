@@ -31,11 +31,15 @@ class FuncDef(BaseModel):
         Verify that parameters and returns must have a type,
         and both keys and values cannot be empty.
         """
+        valid_types = ["number", "string", "boolean"]
         for key, inner_dict in self.parameters.items():
             if len(key) == 0:
                 raise ValueError("Parameter name cannot be empty.")
             if "type" not in inner_dict.keys():
                 raise ValueError(f"Parameter '{key}' must have a type.")
+            if inner_dict["type"].lower() not in valid_types:
+                raise ValueError("Parameter types can only be "
+                                 "'number', 'string' or 'boolean'.")
             for inner_key, inner_val in inner_dict.items():
                 if len(inner_key) == 0 or len(inner_val) == 0:
                     raise ValueError(f"Keys and values in parameter '{key}' "
