@@ -10,7 +10,7 @@ from src.parse_prompts import Prompt
 
 class PromptProcessor:
     def __init__(self, funcs: list[FuncDef], prompts: list[Prompt],
-                 model_name: str, max_tokens: int = 200) -> None:
+                 model_name: str, max_tokens: int = 100) -> None:
         self.funcs = funcs
         self.prompts = prompts
         self.llm = Small_LLM_Model(model_name)
@@ -42,12 +42,15 @@ class PromptProcessor:
     def get_eos(self) -> set[int]:
         """
         Get the token id of eos by checking various way of encoding eos.
+        Also includes \n.
         """
         eos_candidates = [
             "<|endoftext|>",
             "<|im_end|>",
             "</s>",
-            "<eos>"
+            "<eos>",
+            "\n",
+            " \n"
         ]
         eos_ids: set[int] = set()
         for str in eos_candidates:
@@ -288,13 +291,13 @@ class PromptProcessor:
                    f"of type {type}, "
                    "and nothing else.")
         if type.lower() == "number":
-            message += (" Answer in arabic number format. "
-                        f"Value of the parameter {var_name}: ")
+            message += " Answer in arabic number format. "
         elif type.lower() == "boolean":
-            message += (" Answer with 'true' or 'false'. "
-                        f"Value of the parameter {var_name}: ")
-        else:
-            message += f"Value of the parameter {var_name}: "
+            message += " Answer with 'true' or 'false'. "
+        elif var_name.lower() == "regex":
+            message += " Answer only with a valid regular expression. "
+
+        message += f"Value of the parameter {var_name}: "
         return message
 
     def generate_num_param(self, prompt: Prompt, func_def: FuncDef,
@@ -429,7 +432,7 @@ class PromptProcessor:
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
 
-        # Only allow numbers that appear in the prompt
+        # Only allow boolean values
         bool_vals = ["true", "false", "True", "False", "TRUE", "FALSE"]
         candidates = self.tokenize_str(bool_vals)
 
@@ -461,17 +464,61 @@ class PromptProcessor:
 
         return None
 
-    # def generate_str_param(self, prompt)
-
     def generate_str_param(self, prompt: Prompt, func_def: FuncDef,
-                                var_name: str, type: str,
-                                eos_ids: set[int]) -> str:
+                           var_name: str, type: str,
+                           eos_ids: set[int]) -> str | None:
+        """
+        Generate string parameters based on the function and the parameter.
+        """
         message = self.create_prompt_parameters(prompt, func_def,
                                                 var_name, type)
-
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
 
+        if var_name == ("regex" or "name" or "replacement"):
+            return self.generate_str_param_free(input_ids, eos_ids)
+
+        # Only allow strings that appear in the prompt
+        prompt_str = self.extract_string(prompt.prompt)
+        if len(prompt_str) == 0:
+            return self.generate_str_param_free(input_ids, eos_ids)
+        candidates = self.tokenize_str(prompt_str)
+
+        # All generated tokens
+        generated_ids: list[int] = []
+        # Number of matched tokens for each candidate at matching index
+        match_progress: list[int | None] = [None] * len(candidates)
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Get the valid next token id
+            valid_next = self.get_valid_next(candidates,
+                                             match_progress)
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             valid_next)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                break
+
+            generated_ids.append(next_id)
+
+            # Update match progress and check if a string is fully matched
+            res = self.update_match_progress(next_id, candidates,
+                                             match_progress)
+
+            if res is not None:
+                return res.strip(" \'\"\n")
+
+        return None
+
+    def generate_str_param_free(self, input_ids: list[int],
+                                eos_ids: set[int]) -> str:
+        """
+        Free generating with max logits.
+        Fall back if there are no hints for valid tokens in the prompt
+        for the parameters.
+        """
         # All generated tokens
         generated_ids: list[int] = []
 
@@ -486,4 +533,14 @@ class PromptProcessor:
 
             generated_ids.append(next_id)
 
-        return self.llm.decode(generated_ids).strip()
+        res = self.llm.decode(generated_ids).strip()
+        if "\n" in res:
+            return res.split("\n")[0].strip("' \"")
+
+        return res
+
+    def extract_string(self, string: str) -> list[str]:
+        """
+        Find a string marked by '' or "" inside of a string.
+        """
+        return re.findall(r"[\"\'].+[\"\']", string)

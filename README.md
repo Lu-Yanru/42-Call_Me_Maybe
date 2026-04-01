@@ -67,6 +67,9 @@ key choices in implementation
 
 Coalescence
 
+Cacheing
+
+
 ### Performance analysis
 | Matric | Target | Result |
 |--------|--------|--------|
@@ -92,6 +95,14 @@ How to validate the implementation
 - Wrong types
 - Ambiguous prompts
 - Functions with multiple parameters
+
+### Limitations
+The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument types has to be correct.
+This project only handles the level of complexity in prompts and function definitions as shown in the examples. It does not handle argument types other than "number", "boolean" and "string", or nested function definitions.
+
+The model selection also limits the capacity of this project greatly. A better accuracy can only be achieve by using a better LLM model.
+
+
 
 ## Instructions
 This project uses `uv` for dependency management and a `Makefile` to automate common tasks.
