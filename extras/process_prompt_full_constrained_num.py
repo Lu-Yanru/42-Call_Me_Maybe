@@ -104,7 +104,7 @@ class PromptProcessor:
             return None
 
     def get_next_token_id(self, input_ids: list[int],
-                          valid_ids: set[int] | None) -> int:
+                          valid_ids: set[int] | None) -> tuple[int, float]:
         """
         Get the token id with the max logit,
         restricted to only valid tokens.
@@ -121,10 +121,12 @@ class PromptProcessor:
                     masked_logits.append(logit)
                 else:
                     masked_logits.append(float("-inf"))
-            return max(enumerate(masked_logits), key=lambda x: x[1])[0]
+            best_id = max(enumerate(masked_logits), key=lambda x: x[1])[0]
+            return best_id, masked_logits[best_id]
 
         # Get the input id with the max logit
-        return max(enumerate(logits), key=lambda x: x[1])[0]
+        best_id = max(enumerate(logits), key=lambda x: x[1])[0]
+        return best_id, logits[best_id]
 
     def update_match_progress(self, next_id: int,
                               candidates: list[tuple[list[int], str]],
@@ -192,7 +194,7 @@ class PromptProcessor:
                                              match_progress)
             # Pick the best next token based on all generated token so far
             next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             valid_next)
+                                             valid_next)[0]
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 return None
@@ -250,23 +252,15 @@ class PromptProcessor:
                 func_def = func
         eos_ids = self.get_eos()
 
-        used_can: list[str] = []
         res: dict[str, Any] = {}
         if len(func_def.parameters) == 0:
             return res
         for var_name, param in func_def.parameters.items():
             if param["type"].lower() == "number":
-                num_str = \
+                res[var_name] = \
                     self.generate_num_param(prompt, func_def,
                                             var_name, param["type"],
-                                            eos_ids, used_can)
-                if num_str is not None:
-                    try:
-                        res[var_name] = float(num_str)
-                        used_can.append(num_str)
-                    except ValueError:
-                        res[var_name] = None
-
+                                            eos_ids)
             elif param["type"].lower() == "boolean":
                 res[var_name] = \
                     self.generate_bool_param(prompt, func_def,
@@ -311,178 +305,67 @@ class PromptProcessor:
 
     def generate_num_param(self, prompt: Prompt, func_def: FuncDef,
                            var_name: str, type: str,
-                           eos_ids: set[int],
-                           used_candidates: list[str]) -> str | None:
+                           eos_ids: set[int]) -> float | None:
         """
         Extract a numeric value of a parameter from the llm genertion
         using constrained decoding.
-        Allow the llm to only generate numbers that appears in the prompt.
-        Stops when a match is found or reaching max_tokens or EOS.
-
-        Switch to free generating instead if
-        there are fewer arabic numbers in the prompt than parameters.
+        Allow the llm to only generate digit symbols or "." or "-".
+        Remove "." and "-" as soon as they are generated to prevent them
+        from being generated twice in a number.
+        Stops when no digit token is the best next token
+        or reaching max_tokens or EOS.
         """
         message = self.create_prompt_parameters(prompt, func_def,
                                                 var_name, type)
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
 
-        # Only allow numbers that appear in the prompt
-        prompt_nums = self.get_valid_num(prompt.prompt)
-        if len(prompt_nums) == 0:
-            return self.generate_num_param_free(input_ids, eos_ids,
-                                                used_candidates)
-        # Switch to free generating if there are fewer arabic numbers
-        # in the prompt than parameters
-        total_num_parameters = self.get_num_parameters(func_def, "number")
-        if len(prompt_nums) < total_num_parameters:
-            return self.generate_num_param_free(input_ids, eos_ids,
-                                                used_candidates)
-
-        available_can = self.get_available_candidates(prompt_nums,
-                                                      used_candidates)
-        if len(available_can) == 0:
-            return self.generate_num_param_free(input_ids, eos_ids,
-                                                used_candidates)
-        candidates = self.tokenize_str(available_can)
+        # Get token_ids for all possible symbols in a number
+        number_chars = [str(d) for d in range(10)] + [".", "-"]
+        candidates = self.tokenize_str(number_chars)
+        token_to_char_map = {
+            ids[0]: c
+            for ids, c in candidates
+            if len(ids) == 1
+        }
+        valid_tokens = set(token_to_char_map.keys())
 
         # All generated tokens
         generated_ids: list[int] = []
-        # Number of matched tokens for each candidate at matching index
-        match_progress: list[int | None] = [None] * len(candidates)
+        generated_chars: str = ""
 
         # Generate one token at a time, up to max_tokens
         for _ in range(self.max_tokens):
-            # Get the valid next token id
-            valid_next = self.get_valid_next(candidates,
-                                             match_progress)
             # Pick the best next token based on all generated token so far
-            next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             valid_next)
+            next_id, next_logit = \
+                self.get_next_token_id(input_ids + generated_ids,
+                                       valid_tokens)
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 break
+            # Stop if the logit of next_id is -inf
+            if next_logit == float("-inf"):
+                break
 
             generated_ids.append(next_id)
+            generated_chars = self.llm.decode(generated_ids).strip()
 
-            # Update match progress and check if a number is fully matched
-            matched_number = self.update_match_progress(next_id, candidates,
-                                                        match_progress)
+            # Remove . and - once they are generated
+            if "." in generated_chars:
+                dot_ids = {ids[0] for ids, c in candidates if c == "."}
+                valid_tokens -= dot_ids
+            if "-" in generated_chars:
+                minus_ids = {ids[0] for ids, c in candidates if c == "-"}
+                valid_tokens -= minus_ids
 
-            if matched_number is not None:
-                return matched_number
+        try:
+            res = float(generated_chars)
+        except ValueError:
+            res = None
 
-        return None
+        return res
 
-    def generate_num_param_free(self, input_ids: list[int],
-                                eos_ids: set[int],
-                                used_can: list[str]) -> str | None:
-        """
-        If there are no arabic numbers in the prompt,
-        extract the first arabic number
-        generated by the llm using regex.
-        Wait until the matched number stops growing before returning it.
-        """
-        # All generated tokens
-        generated_ids: list[int] = []
-
-        # Track the last matched number its length
-        last_match: str = ""
-        last_match_len = -1
-
-        # Save the target number and stop re-evaluating which number to skip
-        locked_target: str = ""
-
-        # Generate one token at a time, up to max_tokens
-        for _ in range(self.max_tokens):
-            # Pick the best next token based on all generated token so far
-            next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             None)
-            # Stop if llm generates EOS
-            if next_id in eos_ids:
-                if len(last_match) > 0:
-                    return last_match
-                return None
-
-            generated_ids.append(next_id)
-
-            res = self.llm.decode(generated_ids)
-            num = self.get_valid_num(res)
-            if len(num) == 0:
-                continue
-
-            # Target number not yet identified
-            if len(locked_target) == 0:
-                # Skip the numbers in used_candidates
-                remaining_can = used_can.copy()
-                target_match = ""
-                for n in num:
-                    if n in remaining_can:
-                        remaining_can.remove(n)
-                    else:
-                        target_match = n
-                        break
-                # If all found numbers so far have been used and thus skipped
-                if len(target_match) == 0:
-                    continue
-
-                # Lock the target_match
-                locked_target = target_match
-                last_match = locked_target
-                last_match_len = len(locked_target)
-
-            # There is already a locked target match
-            else:
-                # Find match that starts with locked_target
-                # and check if it still grows
-                growing_match = next(
-                    (n for n in num if n.startswith(locked_target) or
-                     locked_target.startswith(n)),
-                    None,
-                )
-                # Somehow no match is found
-                if growing_match is None:
-                    return last_match
-                # Check if the number we match is still growing
-                # and only return if it stops growing
-                if len(growing_match) > last_match_len:
-                    last_match = growing_match
-                    last_match_len = len(target_match)
-                    locked_target = growing_match
-                # If the match is shorter than locked_target, keep generating
-                elif locked_target.startswith(growing_match) \
-                        and len(growing_match) < last_match_len:
-                    continue
-                else:
-                    return last_match
-
-        if len(last_match) > 0:
-            return last_match
-        return None
-
-    def get_valid_num(self, string: str) -> list[str]:
-        """
-        Extract all numbers strings that appear in a string
-        using regex.
-        """
-        return re.findall(r"-?\d+(?:\.\d+)?", string)
-
-    def get_available_candidates(self, valid_candidates: list[str],
-                                 used_candidates: list[str]) -> list[str]:
-        """
-        Remove already used candidates from the valid candidates
-        to avoid repetition.
-        """
-        remaining_used = used_candidates.copy()
-        available_candidates = []
-        for n in valid_candidates:
-            if n in remaining_used:
-                remaining_used.remove(n)
-            else:
-                available_candidates.append(n)
-        return available_candidates
-
-    def get_num_parameters(self, func_def: FuncDef, type: str) -> int:
+    def count_parameters(self, func_def: FuncDef, type: str) -> int:
         """
         Count the total number of parameters of a certain type.
         """
@@ -521,7 +404,7 @@ class PromptProcessor:
                                              match_progress)
             # Pick the best next token based on all generated token so far
             next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             valid_next)
+                                             valid_next)[0]
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 break
@@ -569,7 +452,7 @@ class PromptProcessor:
                                              match_progress)
             # Pick the best next token based on all generated token so far
             next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             valid_next)
+                                             valid_next)[0]
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 break
@@ -599,7 +482,7 @@ class PromptProcessor:
         for _ in range(self.max_tokens):
             # Pick the best next token based on all generated token so far
             next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             None)
+                                             None)[0]
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 break
