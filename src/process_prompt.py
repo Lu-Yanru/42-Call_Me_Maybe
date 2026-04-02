@@ -276,7 +276,9 @@ class PromptProcessor:
                 res[var_name] = \
                     self.generate_str_param(prompt, func_def,
                                             var_name, param["type"],
-                                            eos_ids)
+                                            eos_ids, used_can)
+                if res[var_name] is not None:
+                    used_can.append(res[var_name])
 
         return res
 
@@ -301,10 +303,6 @@ class PromptProcessor:
             message += " Answer with 'true' or 'false'. "
         elif var_name.lower() == "regex":
             message += " Answer only with a valid regular expression. "
-        elif var_name.lower() == "replacement":
-            message += (" In this case, it should be the string or symbols"
-                        " you need to use to replace the other strings"
-                        " or symbols.")
 
         message += f"Value of the parameter {var_name}: "
         return message
@@ -334,7 +332,7 @@ class PromptProcessor:
                                                 used_candidates)
         # Switch to free generating if there are fewer arabic numbers
         # in the prompt than parameters
-        total_num_parameters = self.get_num_parameters(func_def, "number")
+        total_num_parameters = self.count_parameters(func_def, "number")
         if len(prompt_nums) < total_num_parameters:
             return self.generate_num_param_free(input_ids, eos_ids,
                                                 used_candidates)
@@ -482,7 +480,7 @@ class PromptProcessor:
                 available_candidates.append(n)
         return available_candidates
 
-    def get_num_parameters(self, func_def: FuncDef, type: str) -> int:
+    def count_parameters(self, func_def: FuncDef, type: str) -> int:
         """
         Count the total number of parameters of a certain type.
         """
@@ -539,7 +537,8 @@ class PromptProcessor:
 
     def generate_str_param(self, prompt: Prompt, func_def: FuncDef,
                            var_name: str, type: str,
-                           eos_ids: set[int]) -> str | None:
+                           eos_ids: set[int],
+                           used_candidates: list[str]) -> str | None:
         """
         Generate string parameters based on the function and the parameter.
         """
@@ -548,14 +547,25 @@ class PromptProcessor:
         # Encode prompt into a 2D tensor and convert into a list
         input_ids = self.encode_cache(message)
 
-        if var_name == ("regex" or "name" or "replacement"):
+        if var_name.lower() == "name":
             return self.generate_str_param_free(input_ids, eos_ids)
 
         # Only allow strings that appear in the prompt
         prompt_str = self.extract_string(prompt.prompt)
-        if len(prompt_str) == 0:
+
+        if self.count_parameters(func_def, "string") > len(prompt_str):
+            if any(w in var_name.lower() for w in ["regex", "pattern"]):
+                prompt_str = \
+                    self.extract_regex_candidates(prompt.prompt.lower())
+            # if any[w in var_name,lower() for w in ["replacement", "substitute"]):
+            #     prompt_str = \
+            #         self.extract_replacement_candidates(prompt.prompt.lower())
+
+        available_can = self.get_available_candidates(prompt_str,
+                                                      used_candidates)
+        if len(available_can) == 0:
             return self.generate_str_param_free(input_ids, eos_ids)
-        candidates = self.tokenize_str(prompt_str)
+        candidates = self.tokenize_str(available_can)
 
         # All generated tokens
         generated_ids: list[int] = []
@@ -614,6 +624,63 @@ class PromptProcessor:
 
     def extract_string(self, string: str) -> list[str]:
         """
-        Find a string marked by '' or "" inside of a string.
+        Find all strings marked by '' or "" inside of a string.
         """
-        return re.findall(r"[\"\'].+[\"\']", string)
+        return [content for _, content in
+                re.findall(r"([\"'])(.*?)(?<!\\)\1", string)]
+
+    def extract_regex_candidates(self, prompt: str) -> list[str]:
+        """
+        Premake some common regexes as candidates.
+        """
+        candidates = []
+        if any(w in prompt for w in ["non-digit", "non-number", "not digit",
+                                     "not a digit", "not number",
+                                     "not a number"]):
+            candidates.append(r"\D+")
+        if any(w in prompt for w in ["digit", "number", "integer"]):
+            candidates.append(r"\d+")
+        if "vowel" in prompt:
+            candidates.append(r"[aeiouAEIOU]")
+        if "consonant" in prompt:
+            candidates.append(r"[bcdfghjklmnpqrstvwxyz \
+                              BCDFGHJKLMNPQRSTVWXYZ]")
+        if any(w in prompt for w in ["lower letter", "lowercase letter"]):
+            candidates.append(r"[a-z]")
+        if any(w in prompt for w in ["upper letter", "uppercase letter",
+                                     "capital letter"]):
+            candidates.append(r"[A-Z]")
+        if any(w in prompt for w in ["letter", "alphabet", "alphabetical"]):
+            candidates.append(r"[a-zA-Z]")
+        if any(w in prompt for w in ["space", "whitespace", "tab"]):
+            candidates.append(r"\s+")
+        if "alphanumeric" in prompt:
+            candidates.append(r"[a-zA-Z0-9]")
+        if "punctuation" in prompt:
+            candidates.append(r"[,.!?;:]")
+        if any(w in prompt for w in ["special character", "special symbol"]):
+            candidates.append(r"[^a-zA-Z0-9\s]")
+        if "email" in prompt:
+            candidates.append(r"\w+@\w+\.\w+")
+        if any(w in prompt for w in ["url", "link"]):
+            candidates.append(r"https?:\/\/\S+")
+        if len(candidates) == 0:
+            candidates = [str(n) for n in range(10)] \
+                         + [chr(c) for c in range(ord("a"), ord("z") + 1)] \
+                         + [chr(c) for c in range(ord("A"), ord("Z") + 1)] \
+                         + ["[", "]", "\\", "(", ")", "*", "?", "."] \
+                         + ["|", "^", "$", "+"]
+        return candidates
+
+    def extract_replacement_candidates(self, prompt: str) -> list[str]:
+        """
+        Extract candidates for the replacement.
+        Common formulations:
+        Substitute/replace X with Y in 'Z'.
+        Substitute/replace X in 'Z' with Y.
+        Change/Turn X in 'Z' into Y.
+        Change/Turn X into Y in 'Z'.
+        """
+        candidates: list[str] = []
+        match = re.search(r"(with|into)\s\w+", prompt, re.IGNORECASE)
+        return candidates

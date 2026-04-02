@@ -97,8 +97,10 @@ How to validate the implementation
 - Functions with multiple parameters
 
 ### Limitations
-The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument types has to be correct.
-This project only handles the level of complexity in prompts and function definitions as shown in the examples. It does not handle argument types other than "number", "boolean" and "string", or nested function definitions.
+The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument names and types has to be correct and informative.
+This project only handles the level of complexity in prompts and function definitions as shown in the examples. It does not handle argument types other than "number", "boolean" and "string", or complex nested parameter.
+
+The structure of the prompt affects the results, too. A more structured prompt will improve the accuracy.
 
 The model selection also limits the capacity of this project greatly. A better accuracy can only be achieve by using a better LLM model.
 
