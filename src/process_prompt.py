@@ -255,12 +255,16 @@ class PromptProcessor:
             return res
         for var_name, param in func_def.parameters.items():
             if param["type"].lower() == "number":
-                res[var_name] = \
+                num_str = \
                     self.generate_num_param(prompt, func_def,
                                             var_name, param["type"],
                                             eos_ids, used_can)
-                if res[var_name] is not None:
-                    used_can.append(res[var_name])
+                if num_str is not None:
+                    try:
+                        res[var_name] = float(num_str)
+                        used_can.append(num_str)
+                    except ValueError:
+                        res[var_name] = None
 
             elif param["type"].lower() == "boolean":
                 res[var_name] = \
@@ -307,12 +311,15 @@ class PromptProcessor:
     def generate_num_param(self, prompt: Prompt, func_def: FuncDef,
                            var_name: str, type: str,
                            eos_ids: set[int],
-                           used_candidates: list[str]) -> int | float | None:
+                           used_candidates: list[str]) -> str | None:
         """
         Extract a numeric value of a parameter from the llm genertion
         using constrained decoding.
         Allow the llm to only generate numbers that appears in the prompt.
         Stops when a match is found or reaching max_tokens or EOS.
+
+        Switch to free generating instead if
+        there are fewer arabic numbers in the prompt than parameters.
         """
         message = self.create_prompt_parameters(prompt, func_def,
                                                 var_name, type)
@@ -324,6 +331,13 @@ class PromptProcessor:
         if len(prompt_nums) == 0:
             return self.generate_num_param_free(input_ids, eos_ids,
                                                 used_candidates)
+        # Switch to free generating if there are fewer arabic numbers
+        # in the prompt than parameters
+        total_num_parameters = self.get_num_parameters(func_def, "number")
+        if len(prompt_nums) < total_num_parameters:
+            return self.generate_num_param_free(input_ids, eos_ids,
+                                                used_candidates)
+
         available_can = self.get_available_candidates(prompt_nums,
                                                       used_candidates)
         if len(available_can) == 0:
@@ -355,13 +369,13 @@ class PromptProcessor:
                                                         match_progress)
 
             if matched_number is not None:
-                return float(matched_number)
+                return matched_number
 
         return None
 
     def generate_num_param_free(self, input_ids: list[int],
                                 eos_ids: set[int],
-                                used_can: list[str]) -> int | float | None:
+                                used_can: list[str]) -> str | None:
         """
         If there are no arabic numbers in the prompt,
         extract the first arabic number
@@ -372,8 +386,11 @@ class PromptProcessor:
         generated_ids: list[int] = []
 
         # Track the last matched number its length
-        last_match = ""
+        last_match: str = ""
         last_match_len = -1
+
+        # Save the target number and stop re-evaluating which number to skip
+        locked_target: str = ""
 
         # Generate one token at a time, up to max_tokens
         for _ in range(self.max_tokens):
@@ -383,7 +400,7 @@ class PromptProcessor:
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 if len(last_match) > 0:
-                    return float(last_match)
+                    return last_match
                 return None
 
             generated_ids.append(next_id)
@@ -393,31 +410,53 @@ class PromptProcessor:
             if len(num) == 0:
                 continue
 
-            # Skip the numbers in used_candidates
-            remaining_can = used_can.copy()
-            target_match = None
-            for n in num:
-                if n in remaining_can:
-                    remaining_can.remove(n)
-                    # break
-                else:
-                    target_match = n
-                    break
-            # If all found numbers so far have been used and thus skipped
-            if target_match is None:
-                continue
+            # Target number not yet identified
+            if len(locked_target) == 0:
+                # Skip the numbers in used_candidates
+                remaining_can = used_can.copy()
+                target_match = ""
+                for n in num:
+                    if n in remaining_can:
+                        remaining_can.remove(n)
+                    else:
+                        target_match = n
+                        break
+                # If all found numbers so far have been used and thus skipped
+                if len(target_match) == 0:
+                    continue
 
-            # Check if the number we match is still growing
-            # and only return if it stops growing
-            if len(last_match) == 0:
-                last_match = target_match
-                last_match_len = len(target_match)
-            elif len(target_match) > last_match_len:
-                last_match = target_match
-                last_match_len = len(target_match)
+                # Lock the target_match
+                locked_target = target_match
+                last_match = locked_target
+                last_match_len = len(locked_target)
+
+            # There is already a locked target match
             else:
-                return float(last_match)
+                # Find match that starts with locked_target
+                # and check if it still grows
+                growing_match = next(
+                    (n for n in num if n.startswith(locked_target) or
+                     locked_target.startswith(n)),
+                    None,
+                )
+                # Somehow no match is found
+                if growing_match is None:
+                    return last_match
+                # Check if the number we match is still growing
+                # and only return if it stops growing
+                if len(growing_match) > last_match_len:
+                    last_match = growing_match
+                    last_match_len = len(target_match)
+                    locked_target = growing_match
+                # If the match is shorter than locked_target, keep generating
+                elif locked_target.startswith(growing_match) \
+                        and len(growing_match) < last_match_len:
+                    continue
+                else:
+                    return last_match
 
+        if len(last_match) > 0:
+            return last_match
         return None
 
     def get_valid_num(self, string: str) -> list[str]:
@@ -441,6 +480,16 @@ class PromptProcessor:
             else:
                 available_candidates.append(n)
         return available_candidates
+
+    def get_num_parameters(self, func_def: FuncDef, type: str) -> int:
+        """
+        Count the total number of parameters of a certain type.
+        """
+        count = 0
+        for param in func_def.parameters.values():
+            if param["type"].lower() == type:
+                count += 1
+        return count
 
     def generate_bool_param(self, prompt: Prompt, func_def: FuncDef,
                             var_name: str, type: str,
