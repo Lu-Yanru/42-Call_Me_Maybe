@@ -22,3 +22,8 @@ llm-sdk = { workspace = true, editable = true }
 
 [tool.mypy]
 mypy_path = ["src", "llm_sdk"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

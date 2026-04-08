@@ -63,23 +63,23 @@ Before the selection, use constrained decoding to modify the logits and set the 
 - Step 4: Repeat step 1 - 3 until the complete response is generated.
 
 ### Design decisions
-key choices in implementation
-
-Coalescence
+This project uses coalescence o ensure 100% validity of the JSON format. The deterministic part of the JSON output, such as {} and the keys are assembled by force. The LLM only generates the function name and the values of the paramters. This ensures correct JSON format and also speeds up the generation, as it requires the LLM to generate less tokens.
 
 This project also uses caching with the `@lru_cache` decorator from the `functools` module to speed up the tokenization and thus the generation.
 
 
 ### Performance analysis
-| Matric | Target | Result |
+| Matric | Target | Achieved |
 |--------|--------|--------|
-| Valid JSON format | 100% | |
-| Correct function selection | > 90% | |
-| Correct argument extraction | > 90% | |
-| Processing speed | < 5 min | |
+| Valid JSON format | 100% |✅ |
+| Correct function selection | > 90% |✅ |
+| Correct argument extraction | > 90% |✅ |
+| Processing speed | < 5 min |✅ |
 
 ### Testing strategy
-How to validate the implementation
+I used the `pytest` framework for creating unit tests for different types of prompts.
+
+The following errors and edge cases are considered and handled:
 
 #### Handled errors
 - Malformed inputs
@@ -97,7 +97,8 @@ How to validate the implementation
 - Functions with multiple parameters
 
 ### Limitations
-The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument names and types has to be correct and informative.
+The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument names and types has to be correct and informative. Everything needs to be written in correct English.
+
 This project only handles the level of complexity in prompts and function definitions as shown in the examples. It does not handle argument types other than "number", "boolean" and "string", or complex nested parameter.
 
 The structure of the prompt affects the results, too. A more structured prompt will improve the accuracy.
@@ -208,6 +209,5 @@ An array of JSON objects. Each object represents the result of each prompt and c
 - [Regular Expressions: Regexes in Python](https://realpython.com/regex-python/)
 - [Testing and debugging regular expressions](https://regex101.com/)
 - [pytest Tutorial: Effective Python Testing](https://realpython.com/pytest-python-testing/)
-- [Python's unittest: Writing Unit Tests for Your Code](https://realpython.com/python-unittest/)
 
 AI is used to explain the logic of constrained decoding with step-by-step example, and refactor the code.

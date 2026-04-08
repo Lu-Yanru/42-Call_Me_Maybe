@@ -4,84 +4,84 @@
         "name": "fn_add_numbers",
         "parameters": {
             "a": 2.0,
-            "b": null
+            "b": 3.0
         }
     },
     {
         "prompt": "What is the sum of 265 and 345?",
         "name": "fn_add_numbers",
         "parameters": {
-            "a": 2.0,
-            "b": null
+            "a": 265.0,
+            "b": 345.0
         }
     },
     {
         "prompt": "Greet shrek",
         "name": "fn_greet",
         "parameters": {
-            "name": "The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'."
+            "name": "Shrek"
         }
     },
     {
         "prompt": "Greet john",
         "name": "fn_greet",
         "parameters": {
-            "name": "The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'. The answer should be in the format: 'name' is 'value'."
+            "name": "john"
         }
     },
     {
         "prompt": "Reverse the string 'hello'",
         "name": "fn_reverse_string",
         "parameters": {
-            "s": "The answer should be in the format 'print(fn_reverse_string, s, \"hello\")''\n\nThe answer should be in the format 'print(fn_reverse_string, s, \"hello\")' with the value of s being 'hello' and nothing else.\nAnswer:\nprint(fn_reverse_string, s, \"hello\") \n\nThe answer should be in the format 'print(fn_reverse_string, s, \"hello\")' with the value of s being 'hello' and nothing else.\nAnswer:\nprint(fn_reverse_string, s, \"hello\") \n\nThe answer should be in the format 'print(fn_reverse_string, s, \"hello\")' with the value of s being 'hello' and nothing else.\nAnswer:\nprint(fn_reverse_string, s"
+            "s": "hello"
         }
     },
     {
         "prompt": "Reverse the string 'world'",
         "name": "fn_reverse_string",
         "parameters": {
-            "s": "The answer should be in the format 'print(fn_reverse_string, s, \"world\")''\n\nThe answer should be in the format 'print(fn_reverse_string, s, \"world\")' with the value of s being 'world' and nothing else.\nAnswer:\nprint(fn_reverse_string, s, \"world\") \n\nThe answer should be in the format 'print(fn_reverse_string, s, \"world\")' with the value of s being 'world' and nothing else.\nAnswer:\nprint(fn_reverse_string, s, \"world\") \n\nThe answer should be in the format 'print(fn_reverse_string, s, \"world\")' with the value of s being 'world' and nothing else.\nAnswer:\nprint(fn_reverse_string, s"
+            "s": "world"
         }
     },
     {
         "prompt": "What is the square root of 16?",
         "name": "fn_get_square_root",
         "parameters": {
-            "a": null
+            "a": 16.0
         }
     },
     {
         "prompt": "Calculate the square root of 144",
         "name": "fn_get_square_root",
         "parameters": {
-            "a": null
+            "a": 144.0
         }
     },
     {
         "prompt": "Replace all numbers in \"Hello 34 I'm 233 years old\" with NUMBERS",
         "name": "fn_substitute_string_with_regex",
         "parameters": {
-            "source_string": "The answer should be in the format: 'source_string = \"Hello 34 I'm 233 years old\"'\nAnswer:\nsource_string = \"Hello 34 I'm 233 years old\"\nAnswer:\nsource_string = \"Hello 34 I'm 233 years old\"\nAnswer:\nsource_string = \"Hello 34 I'm 233 years old\"\nAnswer:\nsource_string = \"Hello 34 I'm 233 years old\"\nAnswer:\nsource_string = \"Hello 34 I'm 233 years old\"\nAnswer:\nsource_string = \"Hello 34 I'm 233 years old\"\nAnswer:\nsource_string = \"Hello 34",
-            "regex": "The answer should be in the format: 'regex = \"something\"'\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex = \"34 233\"\nAnswer:\nregex =",
-            "replacement": "The answer should be in the format: 'replacement''\n\nThe input string is \"Hello 34 I'm 233 years old\" and the replacement is \"NUMBERS\". The task is to replace all numbers in the string with NUMBERS. What is the value of the parameter replacement?\nThe answer should be in the format: 'replacement''\n\nThe input string is \"Hello 34 I'm 233 years old\" and the replacement is \"NUMBERS\". The task is to replace all numbers in the string with NUMBERS. What is the value of the parameter replacement?\nThe answer should be in the format: 'replacement'?\n\nThe input string is \"Hello 34 I'm 233 years"
+            "source_string": "Hello 34 I'm 233 years old",
+            "regex": "\\d+",
+            "replacement": "NUMBERS"
         }
     },
     {
         "prompt": "Replace all vowels in 'Programming is fun' with asterisks",
         "name": "fn_substitute_string_with_regex",
         "parameters": {
-            "source_string": "The answer should be in the format 'source_string = value' where value is the parameter that you should provide.\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer:\nsource_string = Programming is fun\nAnswer",
-            "regex": "The answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format 'regex:'\n\nThe answer should be in the format",
-            "replacement": "The answer should be in the format 'replacement: ' and then the value of the parameter replacement, and then the value of the parameter replacement. The answer should be in the format 'replacement: ' followed by the value of the parameter replacement. The answer should be in the format 'replacement: ' followed by the value of the parameter replacement. The answer should be in the format 'replacement: ' followed by the value of the parameter replacement. The answer should be in the format 'replacement: ' followed by the value of the parameter replacement. The answer should be in the format 'replacement: ' followed by the value of the parameter replacement. The answer should be in the format 'replacement: ' followed by the value of the parameter replacement. The"
+            "source_string": "Programming is fun",
+            "regex": "[aeiouAEIOU]",
+            "replacement": "*"
         }
     },
     {
         "prompt": "Substitute the word 'cat' with 'dog' in 'The cat sat on the mat with another cat'",
         "name": "fn_substitute_string_with_regex",
         "parameters": {
-            "source_string": "The answer should be in the format: 'source_string = \"The cat sat on the mat with another cat\"'\nAnswer:\nsource_string = \"The cat sat on the mat with another cat\"\nAnswer:\nsource_string = \"The cat sat on the mat with another cat\"\nAnswer:\nsource_string = \"The cat sat on the mat with another cat\"\nAnswer:\nsource_string = \"The cat sat on the mat with another cat\"\nAnswer:\nsource_string = \"The cat sat on the mat with another cat\"\nAnswer:\nsource_string = \"The cat sat on the mat with another cat\"\nAnswer:\nsource_string = \"The cat sat on the mat with another cat\"\nAnswer:\nsource_string = \"The cat sat on the mat with another cat",
-            "regex": "The answer should be in the format 'regex: ' followed by the value of the parameter regex, and nothing else.'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'\nAnswer:\nregex: 'cat'",
-            "replacement": "The answer should be in the format: 'replacement''\n\nAnswer:\n'replacement' is 'dog'\n\nThe answer is 'dog'.\nAnswer:\n'replacement' is 'dog'.\n\n\nAnswer:\n'replacement' is 'dog'. The answer is 'dog'.\nAnswer:\n'replacement' is 'dog'. The answer is 'dog'.\nAnswer:\n'replacement' is 'dog'. The answer is 'dog'.\nAnswer:\n'replacement' is 'dog'. The answer is 'dog'.\nAnswer:\n'replacement' is 'dog'. The answer is 'dog'.\nAnswer:\n'replacement' is 'dog'. The answer is 'dog'.\nAnswer:\n'replacement' is 'dog'. The answer is 'dog'.\nAnswer:\n'replacement' is 'dog"
+            "source_string": "cat",
+            "regex": "dog",
+            "replacement": "The cat sat on the mat with another cat"
         }
     }
 ]

@@ -566,6 +566,9 @@ class PromptProcessor:
                    for w in ["replacement", "substitute"]):
                 prompt_str = \
                     self.extract_replacement_candidates(prompt.prompt)
+                # If there is only one candidate, just return it
+                if len(prompt_str) == 1:
+                    return prompt_str[0]
 
         available_can = self.get_available_candidates(prompt_str,
                                                       used_candidates)
@@ -839,5 +842,5 @@ class PromptProcessor:
             if m in semantic_map.keys():
                 candidates.append(semantic_map[m])
             else:
-                candidates.append(m)
+                candidates.append(m.strip("\'\""))
         return candidates
