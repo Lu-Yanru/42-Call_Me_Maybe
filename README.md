@@ -67,7 +67,7 @@ key choices in implementation
 
 Coalescence
 
-Cacheing
+This project also uses caching with the `@lru_cache` decorator from the `functools` module to speed up the tokenization and thus the generation.
 
 
 ### Performance analysis
@@ -84,6 +84,7 @@ How to validate the implementation
 #### Handled errors
 - Malformed inputs
 - Missing files
+- Wrong types
 
 #### Handled edge cases
 - Function name does not start with "fn_"
@@ -92,7 +93,6 @@ How to validate the implementation
 - Special characters e.g. "café", "María"
 - Strings with internal apostrophes e.g. "I'm", "don't"
 - Semantic replacements e.g. "three" -> 3, "asterisks" → "*"
-- Wrong types
 - Ambiguous prompts
 - Functions with multiple parameters
 

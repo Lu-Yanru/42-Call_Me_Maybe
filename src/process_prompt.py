@@ -75,15 +75,21 @@ class PromptProcessor:
         prefix_len = len(self.encode_cache(prefix))
 
         res: list[tuple[list[int], str]] = []
+        # Prevent duplicate candidates
+        seen: set[tuple[int, ...]] = set()
         # Encode each function name into a list of token ids
         for can in candidates:
             token_ids_start = self.encode_cache(can)
             token_ids_mid = \
                 self.encode_cache(prefix + can)[prefix_len:]
-            if token_ids_mid:
-                res.append((token_ids_mid, can))
-            if token_ids_start and token_ids_mid != token_ids_start:
-                res.append((token_ids_start, can))
+            # Also cases with explicit leading space
+            token_ids_space = self.encode_cache(" " + can)
+
+            for ids in [token_ids_mid, token_ids_start, token_ids_space]:
+                key = tuple(ids)
+                if ids and key not in seen:
+                    seen.add(key)
+                    res.append((ids, can))
 
         return res
 
@@ -307,6 +313,31 @@ class PromptProcessor:
         message += f"Value of the parameter {var_name}: "
         return message
 
+    def get_available_candidates(self, valid_candidates: list[str],
+                                 used_candidates: list[str]) -> list[str]:
+        """
+        Remove already used candidates from the valid candidates
+        to avoid repetition.
+        """
+        remaining_used = used_candidates.copy()
+        available_candidates = []
+        for n in valid_candidates:
+            if n in remaining_used:
+                remaining_used.remove(n)
+            else:
+                available_candidates.append(n)
+        return available_candidates
+
+    def count_parameters(self, func_def: FuncDef, type: str) -> int:
+        """
+        Count the total number of parameters of a certain type.
+        """
+        count = 0
+        for param in func_def.parameters.values():
+            if param["type"].lower() == type:
+                count += 1
+        return count
+
     def generate_num_param(self, prompt: Prompt, func_def: FuncDef,
                            var_name: str, type: str,
                            eos_ids: set[int],
@@ -465,31 +496,6 @@ class PromptProcessor:
         """
         return re.findall(r"-?\d+(?:\.\d+)?", string)
 
-    def get_available_candidates(self, valid_candidates: list[str],
-                                 used_candidates: list[str]) -> list[str]:
-        """
-        Remove already used candidates from the valid candidates
-        to avoid repetition.
-        """
-        remaining_used = used_candidates.copy()
-        available_candidates = []
-        for n in valid_candidates:
-            if n in remaining_used:
-                remaining_used.remove(n)
-            else:
-                available_candidates.append(n)
-        return available_candidates
-
-    def count_parameters(self, func_def: FuncDef, type: str) -> int:
-        """
-        Count the total number of parameters of a certain type.
-        """
-        count = 0
-        for param in func_def.parameters.values():
-            if param["type"].lower() == type:
-                count += 1
-        return count
-
     def generate_bool_param(self, prompt: Prompt, func_def: FuncDef,
                             var_name: str, type: str,
                             eos_ids: set[int]) -> bool | None:
@@ -554,17 +560,18 @@ class PromptProcessor:
         prompt_str = self.extract_string(prompt.prompt)
 
         if self.count_parameters(func_def, "string") > len(prompt_str):
-            if any(w in var_name.lower() for w in ["regex", "pattern"]):
+            if "regex" in var_name.lower():
+                return self.generate_regex_param(prompt, input_ids, eos_ids)
+            if any(w in var_name.lower()
+                   for w in ["replacement", "substitute"]):
                 prompt_str = \
-                    self.extract_regex_candidates(prompt.prompt.lower())
-            # if any[w in var_name,lower() for w in ["replacement", "substitute"]):
-            #     prompt_str = \
-            #         self.extract_replacement_candidates(prompt.prompt.lower())
+                    self.extract_replacement_candidates(prompt.prompt)
 
         available_can = self.get_available_candidates(prompt_str,
                                                       used_candidates)
         if len(available_can) == 0:
             return self.generate_str_param_free(input_ids, eos_ids)
+
         candidates = self.tokenize_str(available_can)
 
         # All generated tokens
@@ -622,6 +629,94 @@ class PromptProcessor:
 
         return res
 
+    def generate_regex_param(self, prompt: Prompt, input_ids: list[int],
+                             eos_ids: set[int]) -> str | None:
+        """
+        Generate a regex parameter by first selecting candidates
+        from pre-made patterns in extract_regex_candidates()
+        based on keywords found in the prompt.
+        If no candidates or more than one candidates are found,
+        use constrained decoding
+        so the model can only use valid regex symbols.
+        """
+        # Get pre-made regex candidates based on prompt keywords
+        regex_candidates = self.extract_regex_candidates(prompt.prompt.lower())
+
+        # If there is only one candidate, just return it.
+        if len(regex_candidates) == 1:
+            return regex_candidates[0]
+
+        # If no candidate matches, generate freely constrained by only
+        # valid regex symbols
+        if len(regex_candidates) == 0:
+            return self.generate_regex_constrained(input_ids, eos_ids)
+
+        # If multiple candidates match,
+        # use constrained decoding with these as valid candidates
+        candidates = self.tokenize_str(regex_candidates)
+        generated_ids: list[int] = []
+        # Number of matched tokens for each candidate at matching index
+        match_progress: list[int | None] = [None] * len(candidates)
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Get the valid next token id
+            valid_next = self.get_valid_next(candidates,
+                                             match_progress)
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             valid_next)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                break
+
+            generated_ids.append(next_id)
+
+            # Update match progress and check if a string is fully matched
+            res = self.update_match_progress(next_id, candidates,
+                                             match_progress)
+
+            if res is not None:
+                return res.strip(" \'\"\n")
+
+        return None
+
+    def generate_regex_constrained(self, input_ids: list[int],
+                                   eos_ids: set[int]) -> str | None:
+        """
+        Generate regex pattern by constraining to valid regex symbols.
+        """
+        generic_fallback = [str(n) for n in range(10)] \
+            + [chr(c) for c in range(ord("a"), ord("z") + 1)] \
+            + [chr(c) for c in range(ord("A"), ord("Z") + 1)] \
+            + ["[", "]", "\\", "(", ")", "*", "?", "."] \
+            + ["|", "^", "$", "+", "-", ",", "{", "}"] \
+            + [">", "<", "'", '"', "!", ":", "#", "="]
+        candidates = self.tokenize_str(generic_fallback)
+        generated_ids: list[int] = []
+        match_progress: list[int | None] = [None] * len(candidates)
+
+        # Generate one token at a time, up to max_tokens
+        for _ in range(self.max_tokens):
+            # Get the valid next token id
+            valid_next = self.get_valid_next(candidates,
+                                             match_progress)
+            # Pick the best next token based on all generated token so far
+            next_id = self.get_next_token_id(input_ids + generated_ids,
+                                             valid_next)
+            # Stop if llm generates EOS
+            if next_id in eos_ids:
+                break
+
+            generated_ids.append(next_id)
+
+            # Update match progress and check if a string is fully matched
+            res = self.llm.decode(generated_ids).strip()
+            if "\n" in res:
+                return res.split("\n")[0].strip("' \"")
+
+        return res
+
     def extract_string(self, string: str) -> list[str]:
         """
         Find all strings marked by '' or "" inside of a string.
@@ -634,53 +729,115 @@ class PromptProcessor:
         Premake some common regexes as candidates.
         """
         candidates = []
+        # Vowels and consonants
+        if "vowel" in prompt:
+            if any(w in prompt for w in ["lowercase", "lower"]):
+                # lowercase vowels only
+                candidates.append(r"[aeiou]")
+            elif any(w in prompt for w in ["uppercase", "upper", "capital"]):
+                # uppercase vowels only
+                candidates.append(r"[AEIOU]")
+            else:
+                # all vowels
+                candidates.append(r"[aeiouAEIOU]")
+
+        if "consonant" in prompt:
+            if any(w in prompt for w in ["lowercase", "lower"]):
+                candidates.append(r"[bcdfghjklmnpqrstvwxyz]")
+            elif any(w in prompt for w in ["uppercase", "upper", "capital"]):
+                candidates.append(r"[BCDFGHJKLMNPQRSTVWXYZ]")
+            else:
+                candidates.append(r"[bcdfghjklmnpqrstvwxyz"
+                                  r"BCDFGHJKLMNPQRSTVWXYZ]")
+
+        # Digits
         if any(w in prompt for w in ["non-digit", "non-number", "not digit",
                                      "not a digit", "not number",
                                      "not a number"]):
             candidates.append(r"\D+")
-        if any(w in prompt for w in ["digit", "number", "integer"]):
+        elif any(w in prompt for w in ["alphanumeric", "alphabet or number",
+                                       "a letter or a number",
+                                       "letters and numbers"]):
+            candidates.append(r"[a-zA-Z0-9]")
+        elif any(w in prompt for w in ["digit", "number", "integer"]):
             candidates.append(r"\d+")
-        if "vowel" in prompt:
-            candidates.append(r"[aeiouAEIOU]")
-        if "consonant" in prompt:
-            candidates.append(r"[bcdfghjklmnpqrstvwxyz \
-                              BCDFGHJKLMNPQRSTVWXYZ]")
-        if any(w in prompt for w in ["lower letter", "lowercase letter"]):
-            candidates.append(r"[a-z]")
-        if any(w in prompt for w in ["upper letter", "uppercase letter",
-                                     "capital letter"]):
+
+        # Letter patterns
+        if any(w in prompt for w in ["uppercase letter", "upper letter",
+                                     "capital letter", "uppercase alphabet",
+                                     "uppercase character"]):
             candidates.append(r"[A-Z]")
-        if any(w in prompt for w in ["letter", "alphabet", "alphabetical"]):
+
+        if any(w in prompt for w in ["lowercase letter", "lower letter",
+                                     "lowercase alphabet",
+                                     "lowercase character"]):
+            candidates.append(r"[a-z]")
+
+        # Only add general letter pattern if no specific case pattern was added
+        # and the prompt mentions letters without specifying case
+        if (not any(r in candidates for r in [r"[A-Z]", r"[a-z]"])
+                and any(w in prompt for w in ["letter", "alphabet",
+                                              "alphabetical"])):
             candidates.append(r"[a-zA-Z]")
+
+        # Other patterns
         if any(w in prompt for w in ["space", "whitespace", "tab"]):
             candidates.append(r"\s+")
-        if "alphanumeric" in prompt:
-            candidates.append(r"[a-zA-Z0-9]")
+
         if "punctuation" in prompt:
             candidates.append(r"[,.!?;:]")
+
         if any(w in prompt for w in ["special character", "special symbol"]):
             candidates.append(r"[^a-zA-Z0-9\s]")
+
         if "email" in prompt:
             candidates.append(r"\w+@\w+\.\w+")
+
         if any(w in prompt for w in ["url", "link"]):
             candidates.append(r"https?:\/\/\S+")
-        if len(candidates) == 0:
-            candidates = [str(n) for n in range(10)] \
-                         + [chr(c) for c in range(ord("a"), ord("z") + 1)] \
-                         + [chr(c) for c in range(ord("A"), ord("Z") + 1)] \
-                         + ["[", "]", "\\", "(", ")", "*", "?", "."] \
-                         + ["|", "^", "$", "+"]
         return candidates
 
     def extract_replacement_candidates(self, prompt: str) -> list[str]:
         """
         Extract candidates for the replacement.
         Common formulations:
-        Substitute/replace X with Y in 'Z'.
+        Substitute/replace X with/by Y in/for 'Z'.
         Substitute/replace X in 'Z' with Y.
         Change/Turn X in 'Z' into Y.
         Change/Turn X into Y in 'Z'.
+        In/For 'Z', replace X by/with Y (everywhere/globally).
+        Convert X into/to Y
         """
         candidates: list[str] = []
-        match = re.search(r"(with|into)\s\w+", prompt, re.IGNORECASE)
+        regex = (r"(?:with|into|by|to)\s+(.*?)"
+                 r"(?:\s+(?:in|for|everywhere|globally)\b|[.!?]|$)")
+        match = re.findall(regex, prompt, re.IGNORECASE)
+        semantic_map = {
+                        "asterisks": "*",
+                        "asterisk": "*",
+                        "stars": "*",
+                        "star": "*",
+                        "underscores": "_",
+                        "underscore": "_",
+                        "nothing": "",
+                        "empty": "",
+                        "blank": "",
+                        "hyphens": "-",
+                        "hyphen": "-",
+                        "dash": "-",
+                        "dashes": "-",
+                        "minus": "-",
+                        "space": " ",
+                        "spaces": " ",
+                        "whitespace": " ",
+                        "whitespaces": " ",
+                        "tab": "    ",
+                        "dot": ".",
+                        "dots": ".",
+                    }
+        for m in match:
+            if m in semantic_map.keys():
+                candidates.append(semantic_map[m])
+            else:
+                candidates.append(m)
         return candidates
