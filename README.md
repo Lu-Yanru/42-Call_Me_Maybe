@@ -96,6 +96,10 @@ The following errors and edge cases are considered and handled:
 - Ambiguous prompts
 - Functions with multiple parameters
 
+### Extension to other LLM models
+This program uses Qwen/Qwen3-0.6B by default. However, it can be used for any transformer models (compatible with the `transformers` framework) on Hugging Face.
+Some examples are: kai-os/Carnice-9b
+
 ### Limitations
 The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument names and types has to be correct and informative. Everything needs to be written in correct English.
 
