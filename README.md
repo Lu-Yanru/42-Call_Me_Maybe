@@ -98,7 +98,7 @@ The following errors and edge cases are considered and handled:
 
 ### Extension to other LLM models
 This program uses Qwen/Qwen3-0.6B by default. However, it can be used for any transformer models (compatible with the Python `transformers` framework) on Hugging Face.
-Some examples are: microsoft/phi-1_5
+Some examples are: HuggingFaceTB/SmolLM2-360M, microsoft/phi-1_5
 
 ### Limitations
 The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument names and types has to be correct and informative. Everything needs to be written in correct English.
@@ -212,6 +212,6 @@ An array of JSON objects. Each object represents the result of each prompt and c
 - [Python's pathlib module: Taming the file system](https://realpython.com/python-pathlib/)
 - [Regular Expressions: Regexes in Python](https://realpython.com/regex-python/)
 - [Testing and debugging regular expressions](https://regex101.com/)
-- [pytest Tutorial: Effective Python Testing](https://realpython.com/pytest-python-testing/)
+- [pytest documentation](https://docs.pytest.org/en/stable/index.html)
 
-AI is used to explain the logic of constrained decoding with step-by-step example, and refactor the code.
+AI is used to explain the logic of constrained decoding with step-by-step example, refactor the code, and help create the test suite.
