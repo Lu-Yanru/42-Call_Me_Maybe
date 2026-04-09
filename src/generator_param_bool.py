@@ -11,8 +11,8 @@ from src.parse_prompts import Prompt
 
 
 class BoolParamGenerator(ConstrainedDecoder):
-    def __init__(self, llm: Small_LLM_Model, max_token: int = 150) -> None:
-        super().__init__(llm, max_token)
+    def __init__(self, llm: Small_LLM_Model, max_tokens: int = 150) -> None:
+        super().__init__(llm, max_tokens)
 
     def generate(self, prompt: Prompt, func_def: FuncDef,
                  var_name: str, type: str) -> bool | None:

@@ -15,6 +15,7 @@ debug:
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	rm -rf .mypy_cache
+	rm -rf .pytest_cache
 
 fclean: clean
 	uv cache clean

@@ -12,8 +12,8 @@ from src.parse_prompts import Prompt
 
 class FuncNameGenerator(ConstrainedDecoder):
     def __init__(self, llm: Small_LLM_Model, funcs: list[FuncDef],
-                 max_token: int = 150) -> None:
-        super().__init__(llm, max_token)
+                 max_tokens: int = 150) -> None:
+        super().__init__(llm, max_tokens)
         self.funcs = funcs
 
     def generate(self, prompt: Prompt) -> str | None:
