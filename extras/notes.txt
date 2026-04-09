@@ -1,3 +1,31 @@
 - https://github.com/Destrigo/42_New_Curriculum/tree/main/milestone_3/call_me_maybe
 - https://github.com/sousampere/42_call_me_maybe_v1.2/tree/main
 - https://github.com/KeroBeros68/Call-Me-Maybe
+
+Todos:
+- Protect when model did not load properly, i.e. when input a invalid model name
+- When there are less numbers in the prompt than number parameters, still use the numbers in prompt to guarantee at least these numbers are correct?
+-> only works when the order does not matter.
+e.g. "What sixty-seven plus -23454674?" -> a: 67.0, b: 2345467676767
+Seems to work ok with simple numbers:
+"What is seventy-five plus 49?" -> a: 75.0, b: "49.0"
+Maybe leave it for now.
+
+- Somehow newly added functions are not matched:
+[
+    {
+        "prompt": "What is -49654658.45 divided by 35453?",
+        "name": "fn_add_numbers",
+        "parameters": {
+            "a": -49654658.45,
+            "b": 35453.0
+        }
+    },
+    {
+        "prompt": "What is the product of 1, 2 and 3?",
+        "name": "fn_get_square_root",
+        "parameters": {
+            "a": 1.0
+        }
+    }
+]
