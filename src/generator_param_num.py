@@ -77,8 +77,8 @@ class NumParamGenerator(ConstrainedDecoder):
         # Generate one token at a time, up to max_tokens
         for _ in range(self.max_tokens):
             # Pick the best next token based on all generated token so far
-            next_id = self.get_next_token_id(input_ids + generated_ids,
-                                             None)
+            next_id, _ = self.get_next_token_id(input_ids + generated_ids,
+                                                None)
             # Stop if llm generates EOS
             if next_id in eos_ids:
                 if len(last_match) > 0:
