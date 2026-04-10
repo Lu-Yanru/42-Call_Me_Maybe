@@ -8,6 +8,7 @@ from src.parse_args import parse_args
 from src.parse_funcs import parse_funcs, FuncDefError
 from src.parse_prompts import parse_prompts, PromptError
 from src.process_prompt import PromptProcessor, ModelError
+from src.visualizer import Visualizer
 from src.write_output import write_output
 
 
@@ -32,7 +33,11 @@ def main() -> None:
             # write output
             write_output(processor.output, args.output)
         else:
-            print("Visualize the process")
+            # process prompts while visualizing the process
+            visualizer = Visualizer(funcs, prompts, args.model)
+            visualizer.process()
+            # write output
+            write_output(visualizer.output, args.output)
     except (FuncDefError, PromptError) as e:
         print(e, file=sys.stderr)
     except ModelError as e:

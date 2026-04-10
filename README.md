@@ -134,6 +134,14 @@ Execute the project:
 		--input data/input/function_calling_tests.json \
 		--output data/output/function_calling_results.json
 
+Run the project while visualizing the generation process:
+
+    make visualize
+
+Use another model:
+
+    uv run python -m src -m model_name
+
 Run the script in debug mode using pdb:
 
 	make debug
@@ -213,5 +221,6 @@ An array of JSON objects. Each object represents the result of each prompt and c
 - [Regular Expressions: Regexes in Python](https://realpython.com/regex-python/)
 - [Testing and debugging regular expressions](https://regex101.com/)
 - [pytest documentation](https://docs.pytest.org/en/stable/index.html)
+- [ANSI escaoe sequences](https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797)
 
 AI is used to explain the logic of constrained decoding with step-by-step example, refactor the code, and help create the test suite.

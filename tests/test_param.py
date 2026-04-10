@@ -198,6 +198,96 @@ class TestNumParamGenerator:
         result = gen.generate(prompt, func_def, "a", "number", [])
         assert float(result) == 42.0
 
+    def test_extracts_negative_number_in_free_generation(self):
+        """
+        Negative numbers should be extracted correctly in free generation too.
+        """
+        llm = make_mock_llm()
+        gen = NumParamGenerator(llm, max_tokens=10)
+        func_def = make_func_def(
+            name="fn_add_numbers",
+            description="Add two numbers together and return their sum.",
+            parameters={
+                "a": {
+                    "type": "number"
+                },
+                "b": {
+                    "type": "number"
+                }
+                },
+            returns={
+                "type": "number"
+            },
+            full_text="a"
+        )
+        # Prompt has no arabic numbers — free generation path
+        prompt = make_prompt("Add -5 and seven")
+
+        # Model generates "-", "5" to form "-5"
+        tokens = [ord("a"), ord("-"), ord("5"), ord("-")]
+        call_count = [0]
+
+        def mock_logits(input_ids):
+            logits = [0.0] * 256
+            if call_count[0] < len(tokens):
+                logits[tokens[call_count[0]]] = 100.0
+            else:
+                logits[0] = 100.0  # EOS
+            call_count[0] += 1
+            return logits
+
+        llm.get_logits_from_input_ids.side_effect = mock_logits
+        llm.decode.side_effect = lambda ids: "" if ids == [0] else \
+            "".join(chr(i) for i in ids if 0 < i < 128)
+
+        result = gen.generate(prompt, func_def, "a", "number", [])
+        assert result == "-5"
+
+    def test_rejects_lone_minue_in_free_generation(self):
+        """
+        Lone minus signe should be rejected in free generation too.
+        """
+        llm = make_mock_llm()
+        gen = NumParamGenerator(llm, max_tokens=10)
+        func_def = make_func_def(
+            name="fn_add_numbers",
+            description="Add two numbers together and return their sum.",
+            parameters={
+                "a": {
+                    "type": "number"
+                },
+                "b": {
+                    "type": "number"
+                }
+                },
+            returns={
+                "type": "number"
+            },
+            full_text="a"
+        )
+        # Prompt has no arabic numbers — free generation path
+        prompt = make_prompt("Add -5 ans seven")
+
+        # Model generates single "-"
+        tokens = [ord("a"), ord("-"), ord("a"), ord("-")]
+        call_count = [0]
+
+        def mock_logits(input_ids):
+            logits = [0.0] * 256
+            if call_count[0] < len(tokens):
+                logits[tokens[call_count[0]]] = 100.0
+            else:
+                logits[0] = 100.0  # EOS
+            call_count[0] += 1
+            return logits
+
+        llm.get_logits_from_input_ids.side_effect = mock_logits
+        llm.decode.side_effect = lambda ids: "" if ids == [0] else \
+            "".join(chr(i) for i in ids if 0 < i < 128)
+
+        result = gen.generate(prompt, func_def, "a", "number", [])
+        assert result is None
+
 
 # ------------------------------------------------------------------ #
 # BoolParamGenerator tests                                          #
