@@ -46,3 +46,4 @@ x - signs are sometimes lost in free generation when the number is complicated
         }
     }
 ]
+-> It seems that the function is working properly but the llm sometimes does not produce the minus sign. 

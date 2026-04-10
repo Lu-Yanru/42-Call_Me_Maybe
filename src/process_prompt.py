@@ -33,7 +33,7 @@ class PromptProcessor:
         except (ValueError, ImportError, OSError):
             raise ModelError(f"Failed to load model '{model_name}'.")
         except Exception:
-            raise ModelError(f"Unexpected error laoding model '{model_name}'.")
+            raise ModelError(f"Unexpected error loading model '{model_name}'.")
 
         self.output: list[dict[str, str | dict[str, Any]]] = []
         self.funcname_generator = FuncNameGenerator(llm, funcs, max_tokens)

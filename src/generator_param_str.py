@@ -44,15 +44,14 @@ class StrParamGenerator(ConstrainedDecoder):
                 # If there is only one candidate, just return it
                 if len(prompt_str) == 1:
                     return prompt_str[0]
-        # If there are enough quoted strings
-        # parameter "source_string" prefers the longest string
-        else:
-            if "source" in var_name.lower():
-                available_can = self.get_available_candidates(prompt_str,
-                                                              used_candidates)
-                if len(available_can) > 0:
-                    longest = max(available_can, key=len)
-                    return longest
+
+        # Parameter "source_string" prefers the longest string
+        if "source" in var_name.lower():
+            available_can = self.get_available_candidates(prompt_str,
+                                                          used_candidates)
+            if len(available_can) > 0:
+                longest = max(available_can, key=len)
+                return longest
 
         available_can = self.get_available_candidates(prompt_str,
                                                       used_candidates)
@@ -64,7 +63,7 @@ class StrParamGenerator(ConstrainedDecoder):
         matched = self.generate_constrained(input_ids, candidates)
         if matched is None:
             return None
-        return matched.strip(" \'\"")
+        return matched.strip("\'\"")
 
     def generate_str_param_free(self, input_ids: list[int]) -> str:
         """
@@ -203,7 +202,11 @@ class StrParamGenerator(ConstrainedDecoder):
                                        "a letter or a number",
                                        "letters and numbers"]):
             candidates.append(r"[a-zA-Z0-9]")
-        elif any(w in prompt for w in ["digit", "number", "integer"]):
+        elif any(w in prompt for w in ["all digit", "all number",
+                                       "all integer",
+                                       "all the numbers", "all the digits",
+                                       "every number", "every digit",
+                                       "the numbers", "the digits"]):
             candidates.append(r"\d+")
 
         # Letter patterns
@@ -220,8 +223,11 @@ class StrParamGenerator(ConstrainedDecoder):
         # Only add general letter pattern if no specific case pattern was added
         # and the prompt mentions letters without specifying case
         if (not any(r in candidates for r in [r"[A-Z]", r"[a-z]"])
-                and any(w in prompt for w in ["letter", "alphabet",
-                                              "alphabetical"])):
+                and any(w in prompt for w in ["all letter", "all alphabet",
+                                              "all the letters",
+                                              "every letter", "the letters",
+                                              "all alphabetical",
+                                              "the alphabet"])):
             candidates.append(r"[a-zA-Z]")
 
         # Other patterns
@@ -257,36 +263,33 @@ class StrParamGenerator(ConstrainedDecoder):
                  r"(?:\s+(?:in|for|everywhere|globally)\b|[.!?]|$)")
         match = re.findall(regex, prompt, re.IGNORECASE)
         semantic_map = {
-                        "asterisks": "*",
                         "asterisk": "*",
-                        "stars": "*",
                         "star": "*",
-                        "underscores": "_",
                         "underscore": "_",
                         "nothing": "",
                         "empty": "",
                         "blank": "",
-                        "hyphens": "-",
                         "hyphen": "-",
                         "dash": "-",
-                        "dashes": "-",
                         "minus": "-",
                         "space": " ",
-                        "spaces": " ",
                         "whitespace": " ",
-                        "whitespaces": " ",
-                        "tab": "    ",
+                        "tab": "\t",
                         "dot": ".",
-                        "dots": ".",
+                        "exclamation": "!",
+                        "question mark": "?"
                     }
+        found_symbol = False
         for m in match:
-            # If match is one of the keywords above, use the symbol
-            if m in semantic_map.keys():
-                candidates.append(semantic_map[m])
+            # If one of the keywords above is in the match, use the symbol
+            for symbol in semantic_map.keys():
+                if symbol in m.lower():
+                    candidates.append(semantic_map[symbol])
+                    found_symbol = True
             # If not, check if there is a quoted string inside
             # If yes, use the quoted string
             # Otherwise use the whole match
-            else:
+            if not found_symbol:
                 strs = self.extract_string(m)
                 if len(strs) == 0:
                     candidates.append(m.strip(" \'\""))
