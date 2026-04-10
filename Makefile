@@ -15,6 +15,9 @@ help:
 debug:
 	uv run python -m pdb -m src
 
+test:
+	uv run pytest tests/
+
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
 	rm -rf .mypy_cache

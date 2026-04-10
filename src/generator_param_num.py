@@ -36,6 +36,7 @@ class NumParamGenerator(ConstrainedDecoder):
 
         # Only allow numbers that appear in the prompt
         prompt_nums = self.get_valid_num(prompt.prompt)
+        # Free generation of no numbers in the prompt
         if len(prompt_nums) == 0:
             return self.generate_num_param_free(input_ids,
                                                 used_candidates)
@@ -48,6 +49,8 @@ class NumParamGenerator(ConstrainedDecoder):
 
         available_can = self.get_available_candidates(prompt_nums,
                                                       used_candidates)
+        # Switch to free generation
+        # when available candidates have been exhausted.
         if len(available_can) == 0:
             return self.generate_num_param_free(input_ids,
                                                 used_candidates)
@@ -81,9 +84,7 @@ class NumParamGenerator(ConstrainedDecoder):
                                                 None)
             # Stop if llm generates EOS
             if next_id in eos_ids:
-                if len(last_match) > 0:
-                    return last_match
-                return None
+                return self.validate_num(last_match)
 
             generated_ids.append(next_id)
 
@@ -107,10 +108,11 @@ class NumParamGenerator(ConstrainedDecoder):
                 if len(target_match) == 0:
                     continue
 
-                # Lock the target_match
-                locked_target = target_match
-                last_match = locked_target
-                last_match_len = len(locked_target)
+                # Only lock the target_match if it is not just a -
+                if target_match != "-":
+                    locked_target = target_match
+                    last_match = locked_target
+                    last_match_len = len(locked_target)
 
             # There is already a locked target match
             else:
@@ -123,7 +125,7 @@ class NumParamGenerator(ConstrainedDecoder):
                 )
                 # Somehow no match is found
                 if growing_match is None:
-                    return last_match
+                    return self.validate_num(last_match)
                 # Check if the number we match is still growing
                 # and only return if it stops growing
                 if len(growing_match) > last_match_len:
@@ -137,13 +139,29 @@ class NumParamGenerator(ConstrainedDecoder):
                 else:
                     return last_match
 
-        if len(last_match) > 0:
-            return last_match
-        return None
+        return self.validate_num(last_match)
 
     def get_valid_num(self, string: str) -> list[str]:
         """
         Extract all numbers strings that appear in a string
         using regex.
         """
-        return re.findall(r"-?\d+(?:\.\d+)?", string)
+        complete = re.findall(r"-?\d+(?:\.\d+)?", string)
+        if complete:
+            return complete
+
+        # Check if the generated text so far starts with a '-'
+        # Could be the model starts to generate a negative number
+        if string.rstrip().endswith("-"):
+            return ["-"]
+
+        return []
+
+    def validate_num(self, num_str: str) -> str | None:
+        """
+        Check if the num_str found is only a "-".
+        If yes, return None instead.
+        """
+        if not num_str or num_str == "-" or len(num_str) == 0:
+            return None
+        return num_str
