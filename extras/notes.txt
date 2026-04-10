@@ -3,7 +3,7 @@
 - https://github.com/KeroBeros68/Call-Me-Maybe
 
 Todos:
-- Protect when model did not load properly, i.e. when input a invalid model name
+x Protect when model did not load properly, i.e. when input a invalid model name
 - When there are less numbers in the prompt than number parameters, still use the numbers in prompt to guarantee at least these numbers are correct?
 -> only works when the order does not matter.
 e.g. "What sixty-seven plus -23454674?" -> a: 67.0, b: 2345467676767
@@ -29,3 +29,5 @@ Maybe leave it for now.
         }
     }
 ]
+-> Training with old functions too much makes their logits higher than usual so they are more likely to be selected.
+Will test without them to see if we can "restore the logits balance". Also improve prompt to ask the llm to think befroe outputing.

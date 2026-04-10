@@ -15,12 +15,26 @@ from src.parse_funcs import FuncDef
 from src.parse_prompts import Prompt
 
 
+class ModelError(Exception):
+    """
+    Exception when loading the llm model.
+    """
+    pass
+
+
 class PromptProcessor:
     def __init__(self, funcs: list[FuncDef], prompts: list[Prompt],
                  model_name: str, max_tokens: int = 150) -> None:
         self.funcs = funcs
         self.prompts = prompts
-        llm = Small_LLM_Model(model_name)
+
+        try:
+            llm = Small_LLM_Model(model_name)
+        except (ValueError, ImportError, OSError):
+            raise ModelError(f"Failed to load model '{model_name}'.")
+        except Exception:
+            raise ModelError(f"Unexpected error laoding model '{model_name}'.")
+
         self.output: list[dict[str, str | dict[str, Any]]] = []
         self.funcname_generator = FuncNameGenerator(llm, funcs, max_tokens)
         self.param_generator = ParameterGenerator(llm, max_tokens)

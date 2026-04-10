@@ -59,8 +59,13 @@ class FuncNameGenerator(ConstrainedDecoder):
         func_defs = self.get_func_defs()
         message = ("Here is a list of functions "
                    "each with a name and a description of what it does: "
-                   f"{func_defs}"
-                   "Select the most appropriate function among the list above "
-                   f"to solve the task '{prompt.prompt}'. "
-                   "Answer with only the name of the selected function.")
+                   f"{func_defs}\n\n"
+                   f"Task: '{prompt.prompt}'\n\n"
+                   "Think step by step before answering:\n"
+                   "- What operation does the task require?\n"
+                   "- Which function description "
+                   "best matches this operation?\n\n"
+                   "After reasoning, output only the name "
+                   "of the selected function on a new line.\n"
+                   "Selected function name: ")
         return message
