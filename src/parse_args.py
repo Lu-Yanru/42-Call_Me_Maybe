@@ -32,6 +32,12 @@ def parse_args() -> Namespace:
         )
 
     parser.add_argument(
+        "-v", "--visualize",
+        action="store_true",
+        help="Toggle to visualize the generation process."
+    )
+
+    parser.add_argument(
         "-m", "--model",
         default="Qwen/Qwen3-0.6B",
         help="Name of the LLM model."

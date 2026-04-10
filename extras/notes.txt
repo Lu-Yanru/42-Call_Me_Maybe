@@ -31,3 +31,5 @@ Maybe leave it for now.
 ]
 -> Training with old functions too much makes their logits higher than usual so they are more likely to be selected.
 Will test without them to see if we can "restore the logits balance". Also improve prompt to ask the llm to think befroe outputing.
+
+- Processing time too long

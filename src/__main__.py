@@ -25,11 +25,14 @@ def main() -> None:
         funcs = parse_funcs(args.functions_definition)
         # parse prompt
         prompts = parse_prompts(args.input)
-        # process prompts
-        processor = PromptProcessor(funcs, prompts, args.model)
-        processor.process()
-        # write output
-        write_output(processor.output, args.output)
+        if not args.visualize:
+            # process prompts
+            processor = PromptProcessor(funcs, prompts, args.model)
+            processor.process()
+            # write output
+            write_output(processor.output, args.output)
+        else:
+            print("Visualize the process")
     except (FuncDefError, PromptError) as e:
         print(e, file=sys.stderr)
     except ModelError as e:

@@ -6,6 +6,9 @@ install:
 run:
 	uv run python -m src
 
+visualize:
+	uv run python -m src -v
+
 help:
 	uv run python -m src -h
 
