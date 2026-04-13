@@ -25,7 +25,8 @@ class ConstrainedDecoder:
         self.max_tokens = max_tokens
 
     def generate_constrained(self, input_ids: list[int],
-                             candidates: list[tuple[list[int], str]]) \
+                             candidates: list[tuple[list[int], str]],
+                             include_newline: bool = True) \
             -> str | None:
         """
         Core constrained generation loop.
@@ -37,7 +38,7 @@ class ConstrainedDecoder:
         generated_ids: list[int] = []
         # Number of matched tokens for each candidate at matching index
         match_progress: list[int | None] = [None] * len(candidates)
-        eos_ids = self.get_eos()
+        eos_ids = self.get_eos(include_newline)
 
         # Generate one token at a time, up to max_tokens
         for _ in range(self.max_tokens):
@@ -60,7 +61,7 @@ class ConstrainedDecoder:
         return None
 
     @lru_cache
-    def get_eos(self) -> set[int]:
+    def get_eos(self, newline: bool = True) -> set[int]:
         """
         Get the token id of eos by checking various way of encoding eos.
         Also includes \n.
@@ -70,9 +71,10 @@ class ConstrainedDecoder:
             "<|im_end|>",
             "</s>",
             "<eos>",
-            "\n",
-            " \n"
         ]
+        if newline:
+            eos_candidates += ["\n", " \n"]
+
         eos_ids: set[int] = set()
         for str in eos_candidates:
             ids = self.llm.encode(str).squeeze(0).tolist()
@@ -84,7 +86,8 @@ class ConstrainedDecoder:
     def encode_cache(self, text: str) -> list[int]:
         return self.llm.encode(text).squeeze(0).tolist()
 
-    def tokenize_str(self, candidates: list[str]) \
+    def tokenize_str(self, candidates: list[str],
+                     mid_ver: bool = True) \
             -> list[tuple[list[int], str]]:
         """
         Create a list of (token_id, candidate) pairs.
@@ -101,10 +104,14 @@ class ConstrainedDecoder:
         # Encode each function name into a list of token ids
         for can in candidates:
             token_ids_start = self.encode_cache(can)
-            token_ids_mid = \
-                self.encode_cache(prefix + can)[prefix_len:]
-            # Also cases with explicit leading space
-            token_ids_space = self.encode_cache(" " + can)
+            if mid_ver:
+                token_ids_mid = \
+                    self.encode_cache(prefix + can)[prefix_len:]
+                # Also cases with explicit leading space
+                token_ids_space = self.encode_cache(" " + can)
+            else:
+                token_ids_mid = []
+                token_ids_space = []
 
             for ids in [token_ids_mid, token_ids_start, token_ids_space]:
                 key = tuple(ids)

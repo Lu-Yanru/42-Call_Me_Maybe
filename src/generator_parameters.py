@@ -47,6 +47,18 @@ class ParameterGenerator(ConstrainedDecoder):
                     except ValueError:
                         res[var_name] = None
 
+            elif param["type"].lower() == "integer":
+                num_str = \
+                    self.num_param.generate(prompt, func_def,
+                                            var_name, param["type"],
+                                            used_can)
+                if num_str is not None:
+                    try:
+                        res[var_name] = int(num_str)
+                        used_can.append(num_str)
+                    except ValueError:
+                        res[var_name] = None
+
             elif param["type"].lower() == "boolean":
                 res[var_name] = \
                     self.bool_param.generate(prompt, func_def,

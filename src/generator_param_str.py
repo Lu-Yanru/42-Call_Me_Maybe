@@ -34,6 +34,13 @@ class StrParamGenerator(ConstrainedDecoder):
         # Only allow strings that appear in the prompt
         prompt_str = self.extract_string(prompt.prompt)
 
+        # Check if \n is in one of the extracted string
+        include_newline = True
+        for string in prompt_str:
+            if "\n" in string:
+                include_newline = False
+                break
+
         if self.count_parameters(func_def, "string") > len(prompt_str):
             if "regex" in var_name.lower():
                 return self.generate_regex_param(prompt, input_ids)
@@ -60,7 +67,7 @@ class StrParamGenerator(ConstrainedDecoder):
 
         candidates = self.tokenize_str(available_can)
 
-        matched = self.generate_constrained(input_ids, candidates)
+        matched = self.generate_constrained(input_ids, candidates, include_newline)
         if matched is None:
             return None
         return matched.strip("\'\"")
@@ -137,7 +144,7 @@ class StrParamGenerator(ConstrainedDecoder):
         # Build the set of valid token ids from the generic_fallback chars
         valid_ids: set[int] = {
             ids[0]
-            for ids, _ in self.tokenize_str(generic_fallback)
+            for ids, _ in self.tokenize_str(generic_fallback, False)
             if len(ids) == 1  # Only single token chars are valid
         }
 
@@ -165,7 +172,7 @@ class StrParamGenerator(ConstrainedDecoder):
         Find all strings marked by '' or "" inside of a string.
         """
         return [content for _, content in
-                re.findall(r"([\"'])(.*?)(?<!\\)\1", string)]
+                re.findall(r"([\"'])(.*?)(?<!\\)\1", string, re.DOTALL)]
 
     def extract_regex_candidates(self, prompt: str) -> list[str]:
         """

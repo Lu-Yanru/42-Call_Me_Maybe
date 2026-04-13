@@ -117,7 +117,8 @@ class Visualizer:
         print(self.separator())
         print(self.style(
             "📞 Call Me Maybe\n"
-            f"Processing {self.total_prompts} prompts...",
+            f"Processing {self.total_prompts} prompt"
+            f"{'s...' if self.total_prompts > 1 else '...'}",
             Style.BOLD, Style.CYAN
         ))
         print(self.separator())

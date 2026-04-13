@@ -47,3 +47,10 @@ x - signs are sometimes lost in free generation when the number is complicated
     }
 ]
 -> It seems that the function is working properly but the llm sometimes does not produce the minus sign. 
+
+x When there is a newline in quoted string, only get the part before the newline because generation stops at \n
+-> The problem is regex does not extract beyond \n. So quoted string will not be extracted correctly if they contain a newline.
+-> use re.DOTALL to match a newline too
+
+x for constrained regex generation, do not allow mid_sentence version (no leading space)
+-> add a flag in tokenize_str() for including mid sentence version or not.
