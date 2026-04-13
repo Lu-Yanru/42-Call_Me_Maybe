@@ -33,9 +33,9 @@
         "prompt": "Calculate compound interest on 1234567.89 at 0.0375 rate for 23 years",
         "name": "fn_calculate_compound_interest",
         "parameters": {
-            "principal": 23.0,
+            "principal": 1234567.89,
             "rate": 0.0375,
-            "years": null
+            "years": 23
         }
     },
     {

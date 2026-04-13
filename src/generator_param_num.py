@@ -42,7 +42,8 @@ class NumParamGenerator(ConstrainedDecoder):
                                                 used_candidates)
         # Switch to free generating if there are fewer arabic numbers
         # in the prompt than parameters
-        total_num_parameters = self.count_parameters(func_def, "number")
+        total_num_parameters = (self.count_parameters(func_def, "number")
+                                + self.count_parameters(func_def, "integer"))
         if len(prompt_nums) < total_num_parameters:
             return self.generate_num_param_free(input_ids,
                                                 used_candidates)
@@ -56,6 +57,10 @@ class NumParamGenerator(ConstrainedDecoder):
                                                 used_candidates)
         if len(available_can) == 1:
             return available_can[0]
+
+        preselect = self.preselect_candidate(available_can, var_name.lower())
+        if preselect is not None:
+            return preselect
 
         candidates = self.tokenize_str(available_can)
 
@@ -143,6 +148,48 @@ class NumParamGenerator(ConstrainedDecoder):
                     return last_match
 
         return self.validate_num(last_match)
+
+    def preselect_candidate(self, available_can: list[str],
+                            var_name: str) -> str | None:
+        """
+        Preselect which candidate goes to which parameter
+        based on parameter name.
+        """
+        # Keywords that suggest large values
+        large_value_hints = ["principal", "amount", "total", "sum",
+                             "price", "cost", "value", "balance"]
+        # Keywords that suggest small decimal values (rates, percentages)
+        rate_hints = ["rate", "ratio", "percent", "percentage",
+                      "factor", "multiplier"]
+        # Keywords that suggest small integer values (years, count, n)
+        count_hints = ["year", "years", "month", "months", "day", "days",
+                       "count", "num", "number", "n", "times", "period"]
+
+        def to_float(s: str) -> float:
+            try:
+                return float(s)
+            except ValueError:
+                return 0.0
+
+        sorted_cans = sorted(available_can, key=to_float)
+
+        integers = []
+        for can in sorted_cans:
+            if "." not in sorted_cans:
+                integers.append(can)
+
+        if any(w in var_name for w in large_value_hints):
+            return sorted_cans[-1]
+
+        if any(w in var_name for w in rate_hints):
+            return sorted_cans[0]
+
+        if any(w in var_name for w in count_hints):
+            if len(integers) > 0:
+                return integers[0]
+
+        # If no keyword match
+        return None
 
     def get_valid_num(self, string: str) -> list[str]:
         """
