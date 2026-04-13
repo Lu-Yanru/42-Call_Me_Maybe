@@ -56,9 +56,15 @@ class PromptProcessor:
             else:
                 prompt_output["name"] = func_name
 
+                func_def = None
                 for func in self.funcs:
                     if func.name == func_name:
                         func_def = func
+                if not func_def:
+                    print("Cannot find a suitable function for "
+                          f"'{prompt.prompt}'. "
+                          "Skipping...")
+                    continue
                 prompt_output["parameters"] = \
                     self.param_generator.generate(prompt, func_def)
 

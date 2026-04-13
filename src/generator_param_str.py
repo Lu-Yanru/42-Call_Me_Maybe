@@ -79,7 +79,8 @@ class StrParamGenerator(ConstrainedDecoder):
 
         candidates = self.tokenize_str(available_can)
 
-        matched = self.generate_constrained(input_ids, candidates, include_newline)
+        matched = self.generate_constrained(input_ids, candidates,
+                                            include_newline)
         if matched is None:
             return None
         return matched.strip("\'\"")
@@ -315,24 +316,27 @@ class StrParamGenerator(ConstrainedDecoder):
                 else:
                     candidates.append(strs[0].strip("\'\""))
         return candidates
-    
+
     def extract_file_path(self, string: str) -> list[str]:
         """
         Extract the file path.
         """
-        return re.findall(r"(?:[a-zA-Z]:\\|\/)(?:[\w.-]+[\\\/])*[\w.-]+", string)
+        return re.findall(r"(?:[a-zA-Z]:\\|\/)(?:[\w.-]+[\\\/])*[\w.-]+",
+                          string)
 
     def extract_database(self, string: str) -> list[str]:
         """
         Extract the database name.
         """
-        return re.findall(r"(?:the\s+)([\w-]*)(?:\s+database)", string, re.IGNORECASE)
+        return re.findall(r"(?:the\s+)([\w-]*)(?:\s+database)",
+                          string, re.IGNORECASE)
 
     def extract_encoding(self, string: str) -> list[str]:
         """
         Extract the encoding format.
         """
-        return re.findall(r"(?:with\s+)([\w-]*)(?:\s+encoding)", string, re.IGNORECASE)
+        return re.findall(r"(?:with\s+)([\w-]*)(?:\s+encoding)",
+                          string, re.IGNORECASE)
 
     def extract_template(self, string: str) -> list[str]:
         """

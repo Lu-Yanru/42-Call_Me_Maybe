@@ -54,6 +54,9 @@ class NumParamGenerator(ConstrainedDecoder):
         if len(available_can) == 0:
             return self.generate_num_param_free(input_ids,
                                                 used_candidates)
+        if len(available_can) == 1:
+            return available_can[0]
+
         candidates = self.tokenize_str(available_can)
 
         return self.generate_constrained(input_ids, candidates)
@@ -97,7 +100,7 @@ class NumParamGenerator(ConstrainedDecoder):
             if len(locked_target) == 0:
                 # Skip the numbers in used_candidates
                 remaining_can = used_can.copy()
-                target_match = ""
+                target_match: str = ""
                 for n in num:
                     if n in remaining_can:
                         remaining_can.remove(n)

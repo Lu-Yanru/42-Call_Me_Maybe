@@ -79,12 +79,17 @@ class Visualizer:
                 self.print_no_match()
                 continue
             else:
-                self.print_match(func_name)
                 prompt_output["name"] = func_name
 
+                func_def = None
                 for func in self.funcs:
                     if func.name == func_name:
                         func_def = func
+                if not func_def:
+                    self.print_no_match()
+                    continue
+
+                self.print_match(func_name)
                 params = self.param_generator.generate(prompt, func_def)
                 prompt_output["parameters"] = params
                 for var_name, value in params.items():
