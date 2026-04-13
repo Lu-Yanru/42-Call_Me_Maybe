@@ -63,9 +63,9 @@ Before the selection, use constrained decoding to modify the logits and set the 
 - Step 4: Repeat step 1 - 3 until the complete response is generated.
 
 ### Design decisions
-This project uses coalescence o ensure 100% validity of the JSON format. The deterministic part of the JSON output, such as {} and the keys are assembled by force. The LLM only generates the function name and the values of the paramters. This ensures correct JSON format and also speeds up the generation, as it requires the LLM to generate less tokens.
+This project uses **coalescence** to ensure 100% validity of the JSON format. The deterministic part of the JSON output, such as {} and the keys are assembled by force. The LLM only generates the function name and the values of the paramters. This ensures correct JSON format and also speeds up the generation, as it requires the LLM to generate less tokens.
 
-This project also uses caching with the `@lru_cache` decorator from the `functools` module to speed up the tokenization and thus the generation.
+This project also uses **caching** with the `@lru_cache` decorator from the `functools` module to speed up the tokenization and thus the generation.
 
 
 ### Performance analysis
@@ -103,7 +103,7 @@ Some examples are: HuggingFaceTB/SmolLM2-360M, microsoft/phi-1_5
 ### Limitations
 The output accuracy depends on the correct definition of the functions, in the sense that the description has to be accurate and the argument names and types has to be correct and informative. Everything needs to be written in correct English.
 
-This project only handles the level of complexity in prompts and function definitions as shown in the examples. It does not handle argument types other than "number", "boolean" and "string", or complex nested parameter.
+This project only handles the level of complexity in prompts and function definitions as shown in the examples. It does not handle argument types other than "integer", "number" (float), "boolean" and "string", or complex nested parameter.
 
 The structure of the prompt affects the results, too. A more structured prompt will improve the accuracy.
 
