@@ -32,7 +32,16 @@ class StrParamGenerator(ConstrainedDecoder):
             return self.generate_str_param_free(input_ids)
 
         # Only allow strings that appear in the prompt
-        prompt_str = self.extract_string(prompt.prompt)
+        if var_name.lower() == "template":
+            prompt_str = self.extract_template(prompt.prompt)
+        elif var_name.lower() == "database":
+            prompt_str = self.extract_database(prompt.prompt)
+        elif var_name.lower() == "encoding":
+            prompt_str = self.extract_encoding(prompt.prompt)
+        elif var_name.lower() == "path":
+            prompt_str = self.extract_file_path(prompt.prompt)
+        else:
+            prompt_str = self.extract_string(prompt.prompt)
 
         # Check if \n is in one of the extracted string
         include_newline = True
@@ -64,6 +73,9 @@ class StrParamGenerator(ConstrainedDecoder):
                                                       used_candidates)
         if len(available_can) == 0:
             return self.generate_str_param_free(input_ids)
+
+        if len(available_can) == 1:
+            return available_can[0]
 
         candidates = self.tokenize_str(available_can)
 
@@ -303,3 +315,27 @@ class StrParamGenerator(ConstrainedDecoder):
                 else:
                     candidates.append(strs[0].strip("\'\""))
         return candidates
+    
+    def extract_file_path(self, string: str) -> list[str]:
+        """
+        Extract the file path.
+        """
+        return re.findall(r"(?:[a-zA-Z]:\\|\/)(?:[\w.-]+[\\\/])*[\w.-]+", string)
+
+    def extract_database(self, string: str) -> list[str]:
+        """
+        Extract the database name.
+        """
+        return re.findall(r"(?:the\s+)([\w-]*)(?:\s+database)", string, re.IGNORECASE)
+
+    def extract_encoding(self, string: str) -> list[str]:
+        """
+        Extract the encoding format.
+        """
+        return re.findall(r"(?:with\s+)([\w-]*)(?:\s+encoding)", string, re.IGNORECASE)
+
+    def extract_template(self, string: str) -> list[str]:
+        """
+        Extract template from the prompt "Format template: ..."
+        """
+        return re.findall(r"(?:template:\s+)(.*)", string, re.IGNORECASE)

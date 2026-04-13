@@ -67,21 +67,5 @@
     "returns": {
       "type": "string"
     }
-  },
-  {
-    "name": "call_me",
-    "description": "A function that prints out the message 'call me'.",
-    "parameters": {},
-    "returns": {}
-  },
-  {
-    "name": "log_customer",
-    "description": "Log the information of a customer with a customer id and whether the customer is a premium member or not.",
-    "parameters": {
-        "is_premium": {
-            "type": "boolean"
-        }
-    },
-    "returns": {"type": "string"}
   }
 ]

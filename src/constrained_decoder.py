@@ -240,7 +240,7 @@ class ConstrainedDecoder:
                    f"Provide only the value of the parameter {var_name} "
                    f"of type {type}, "
                    "and nothing else.")
-        if type.lower() == "number":
+        if type.lower() == "number" or type.lower() == "integer":
             message += " Answer in arabic number format. "
         elif type.lower() == "boolean":
             message += " Answer with 'true' or 'false'. "
