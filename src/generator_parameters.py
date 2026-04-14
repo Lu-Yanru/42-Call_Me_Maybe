@@ -38,7 +38,7 @@ class ParameterGenerator(ConstrainedDecoder):
             if param["type"].lower() == "number":
                 num_str = \
                     self.num_param.generate(prompt, func_def,
-                                            var_name, param["type"],
+                                            var_name, param["type"].lower(),
                                             used_can)
                 if num_str is not None:
                     try:
@@ -50,7 +50,7 @@ class ParameterGenerator(ConstrainedDecoder):
             elif param["type"].lower() == "integer":
                 num_str = \
                     self.num_param.generate(prompt, func_def,
-                                            var_name, param["type"],
+                                            var_name, param["type"].lower(),
                                             used_can)
                 if num_str is not None:
                     try:
@@ -62,11 +62,11 @@ class ParameterGenerator(ConstrainedDecoder):
             elif param["type"].lower() == "boolean":
                 res[var_name] = \
                     self.bool_param.generate(prompt, func_def,
-                                             var_name, param["type"])
+                                             var_name, param["type"].lower())
             else:
                 res[var_name] = \
                     self.str_param.generate(prompt, func_def,
-                                            var_name, param["type"],
+                                            var_name, param["type"].lower(),
                                             used_can)
                 if res[var_name] is not None:
                     used_can.append(res[var_name])

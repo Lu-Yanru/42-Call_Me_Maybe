@@ -179,7 +179,7 @@ class NumParamGenerator(ConstrainedDecoder):
 
         integers = []
         for can in sorted_cans:
-            if "." not in sorted_cans:
+            if "." not in can:
                 integers.append(can)
                 sorted_cans.remove(can)
 
