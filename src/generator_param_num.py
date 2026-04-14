@@ -58,9 +58,13 @@ class NumParamGenerator(ConstrainedDecoder):
         if len(available_can) == 1:
             return available_can[0]
 
-        preselect = self.preselect_candidate(available_can, var_name.lower())
+        preselect = self.preselect_candidate(available_can, var_name.lower(),
+                                             type)
         if preselect is not None:
-            return preselect
+            if len(preselect) == 1:
+                return preselect[0]
+            else:
+                available_can = preselect
 
         candidates = self.tokenize_str(available_can)
 
@@ -150,7 +154,7 @@ class NumParamGenerator(ConstrainedDecoder):
         return self.validate_num(last_match)
 
     def preselect_candidate(self, available_can: list[str],
-                            var_name: str) -> str | None:
+                            var_name: str, type: str) -> list[str] | None:
         """
         Preselect which candidate goes to which parameter
         based on parameter name.
@@ -177,16 +181,16 @@ class NumParamGenerator(ConstrainedDecoder):
         for can in sorted_cans:
             if "." not in sorted_cans:
                 integers.append(can)
+                sorted_cans.remove(can)
 
         if any(w in var_name for w in large_value_hints):
-            return sorted_cans[-1]
+            return [sorted_cans[-1]]
 
         if any(w in var_name for w in rate_hints):
-            return sorted_cans[0]
+            return [sorted_cans[0]]
 
-        if any(w in var_name for w in count_hints):
-            if len(integers) > 0:
-                return integers[0]
+        if any(w in var_name for w in count_hints) or type == "integer":
+            return integers
 
         # If no keyword match
         return None
